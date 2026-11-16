@@ -1,62 +1,80 @@
-> **由 [bargino](https://github.com/bargino) 维护的社区 fork。** 基于已于 2026 年 10 月 20 日归档的 [leookun/cursor-byok](https://github.com/leookun/cursor-byok)，保留原 MIT 许可证与贡献历史。
->
-> **v1.0.3 安装包：**[下载 Windows、macOS、Linux 版本](https://github.com/bargino/cursor-byok/releases/latest)。本 fork 包含二进制 BidiAppend 传输、RunInference、子代理消息身份和上下文溢出恢复等改动，具体范围与验证结果见[维护说明](support/fork-maintenance.md)。从原上游切换需要手动安装；本 fork 使用独立更新源和签名。
-
 <div align="center">
 
-# cursor-byok
+# Cursor BYOK
 
-cursor-byok 是一个运行在本机的 Cursor 模型网关，帮助你在 Cursor 中使用自己配置的模型服务。
+### 把自己的模型 API 和账号接入 Cursor
 
-[English README](./README.md) · [下载](https://github.com/bargino/cursor-byok/releases/latest) · [上游使用指南](https://docs.leokun.cn) · [源码构建](support/fork-maintenance.md#build-from-source) · [提交问题](https://github.com/bargino/cursor-byok/issues)
+开源桌面模型网关：自定义 API、多账号池、积分查询与用量统计。
+
+[English](./README.md) · [下载安装](#下载安装) · [快速开始](#快速开始) · [账号插件](#账号插件) · [提交问题](https://github.com/bargino/cursor-byok/issues)
 
 [![Release](https://img.shields.io/github/v/release/bargino/cursor-byok?style=flat-square)](https://github.com/bargino/cursor-byok/releases/latest)
-[![Downloads](https://img.shields.io/github/downloads/bargino/cursor-byok/total?style=flat-square)](https://github.com/bargino/cursor-byok/releases)
 [![CI](https://github.com/bargino/cursor-byok/actions/workflows/ci.yml/badge.svg)](https://github.com/bargino/cursor-byok/actions/workflows/ci.yml)
+[![Platforms](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey?style=flat-square)](#下载安装)
 [![License](https://img.shields.io/github/license/bargino/cursor-byok?style=flat-square)](./LICENSE)
-[![Platforms](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey?style=flat-square)](https://github.com/bargino/cursor-byok/releases/latest)
 
 </div>
 
-![将 cursor-byok 连接到多种模型 API](./images/en-brand-1.png)
+![Cursor BYOK：自己的模型 API、多账号池与积分查询](./assets/banners/cursor-byok/geometric-zh-1280x640.png)
 
-![cursor-byok 控制面板](./images/en-home-1.png)
+在 Cursor 中使用自己配置的 OpenAI / Anthropic 兼容服务，或通过账号插件接入已有服务的模型。在一个桌面应用里管理模型连接、多个账号和调用记录。
 
-## 项目简介
-
-cursor-byok 是一个开源的本地模型网关。它在你的设备上运行服务，接收 Cursor 发出的 Agent 请求，将请求转发到你配置的模型服务，并尽可能保留 Cursor Agent 的工具调用、Skills、MCP 和多轮对话能力。
-
-你可以连接兼容 OpenAI 或 Anthropic 协议的服务，自定义服务地址、模型 ID、API Key 和请求参数，也可以使用 Cursor 平台默认选项之外的模型通道。
-
-> [!IMPORTANT]
-> cursor-byok 免费且开源，但你连接的模型服务商可能会按用量收费。本项目是独立项目，与 Cursor 或其开发者没有关联，也未获得其认可。
+**1.0.4 构建新增：**WorkBuddy、Qoder 国内/国际、TeleAgent（中国电信）和 Kiro 账号插件，支持账号池与积分查询；同时修复并发登录、刷新时覆盖其他账号的问题。登录条件和验证范围见 [1.0.4 说明](support/releases/v1.0.4.md)。
 
 ## 主要功能
 
-- **自定义模型通道**：配置自己的 API 地址、凭据和模型 ID。
-- **多种 API 协议**：支持 OpenAI Responses API、OpenAI Chat Completions API 和 Anthropic Messages API 兼容服务。
-- **账号插件与账号池**：新增 WorkBuddy、Qoder 国内/国际、TeleAgent 和 Kiro，支持多账号保存、轮转、凭据导入和积分查询。各平台登录条件与使用说明见 [1.0.4 说明](support/releases/v1.0.4.md)。
-- **模型管理**：添加、复制、编辑、排序模型配置，并批量测试连接。
-- **连接性能测试**：查看首字延迟、生成速度、总耗时和原始服务商响应。
-- **Agent 工作流**：继续使用工具调用、Skills、MCP 和多轮对话。
-- **会话指标**：查看 Token 用量、缓存命中率、对话轮次和估算价值。
-- **TAB 补全服务**：在公益服务、官方直连和自定义服务之间选择连接方式。
-- **跨平台运行**：支持 macOS、Windows 和 Linux。
+- **自己的模型通道**：配置 API 地址、密钥、模型 ID 和参数，支持 OpenAI Responses、Chat Completions 与 Anthropic Messages 兼容接口。
+- **多个账号一起管理**：按真实身份保存账号，轮转可用账号，查询服务商积分。失败切换只在响应开始输出前进行。
+- **继续使用 Agent**：协议适配支持工具调用、Skills、MCP 和多轮对话，具体能力取决于模型和 Cursor 版本。
+- **调用与用量可见**：查看请求记录、Token 用量、缓存统计、连接测试与估算价值。
+- **桌面跨平台**：提供 Windows、macOS Intel / Apple Silicon 和 Linux 构建；本机网关将模型请求发往你选择的服务商。
+
+![Cursor BYOK 控制面板，展示模型调用和 Token 用量](./images/en-home-1.png)
+
+*界面预览使用示例数据；图中的用量、缓存命中率和估算价值不代表性能测试或实际节省金额。*
+
+## 下载安装
+
+**需要新增账号插件，请下载下面的 1.0.4 安装包构建。** 当前已发布的 GitHub Release 为 [v1.0.3](https://github.com/bargino/cursor-byok/releases/tag/v1.0.3)，不含这四个新增插件。
+
+| 系统 | 1.0.4 账号插件构建 | 包含文件 |
+| --- | --- | --- |
+| Windows x64 | [下载构建 ZIP](https://github.com/bargino/cursor-byok/actions/runs/43882978067/artifacts/14234715652) | 安装 EXE、MSI、便携 ZIP |
+| macOS Apple Silicon | [下载构建 ZIP](https://github.com/bargino/cursor-byok/actions/runs/43887113282/artifacts/14237991128) | ARM64 DMG、应用归档 |
+| macOS Intel | [下载构建 ZIP](https://github.com/bargino/cursor-byok/actions/runs/43882978067/artifacts/14234398951) | x64 DMG、应用归档 |
+| Linux x64 | [下载构建 ZIP](https://github.com/bargino/cursor-byok/actions/runs/43882978067/artifacts/14233629111) | AppImage、DEB、RPM、二进制归档 |
+
+以上为 GitHub Actions 构建产物：需要先**登录 GitHub**，下载外层 ZIP 并解压，再选择系统对应的安装包。四个构建产物预计于 **2026 年 12 月 16 日**过期，包含版本/提交信息及 SHA-256 校验文件；它们尚未发布为 1.0.4 Release，也未进入自动更新源。
+
+需要无需登录 GitHub 的正式发布包，可下载 [v1.0.3](https://github.com/bargino/cursor-byok/releases/tag/v1.0.3)。也可以按[源码构建说明](support/fork-maintenance.md#build-from-source)构建当前版本。macOS 包尚未经过 Apple 公证。
 
 ## 快速开始
 
-从下方下载对应系统的安装包，或按[源码构建说明](support/fork-maintenance.md#build-from-source)构建。从原上游切换前，请完全退出 Cursor 和 Cursor BYOK，并备份 `~/.cursor-byok-v3/` 数据目录。
+从原上游切换前，请完全退出 Cursor 和 Cursor BYOK，并备份 `~/.cursor-byok-v3/` 数据目录。本 fork 使用独立更新源和签名，首次切换需要手动安装。
 
-1. 从 [GitHub Releases](https://github.com/bargino/cursor-byok/releases/latest) 下载适合你操作系统的最新版本。
-2. 启动 cursor-byok，打开 **Cursor 配置**，按提示初始化本地 CA（证书颁发机构）。
-3. 在模型设置中添加模型，填写服务地址、API Key 和模型名称，然后保存并运行 **测试**。
-4. 确认测试通过后，保持 cursor-byok 运行。
-5. **首次升级 Cursor 或首次配置模型后，完全退出并重新启动 Cursor，然后新开一个对话**。在模型列表中选择已配置的模型，开始使用 Agent。
+1. 安装适合系统的版本，打开 **Cursor 配置**，按提示初始化本地 CA。
+2. 选择模型接入方式：
+   - **API Key**：在 **模型设置** 中选择服务商和协议，填写服务地址、API Key 与模型 ID，保存并运行 **测试**。
+   - **账号插件（1.0.4）**：打开 **插件**，先初始化插件运行时，启用对应插件并 **添加账号**。完成授权后，在账号管理中启用需要的模型；重复添加可组成账号池。
+3. 保持 Cursor BYOK 运行，**完全退出并重新启动 Cursor，新开一个对话**。
+4. 在 Cursor 中手动选择配置的模型。**Auto 使用 Cursor 官方模型**，不会自动使用自定义通道。
 
-完整的安装步骤、配置说明和常见问题，请参阅[中文使用指南](https://docs.leokun.cn/zh/docs)。
+API Key 和账号凭据保存在本机；模型请求仍发送到对应服务商。模型权限、额度和费用以服务商为准。Cursor BYOK 免费开源，模型服务可能收费。本项目为独立社区项目，与 Cursor 或所列服务商无隶属或背书关系。
 
-> [!TIP]
-> 首次升级 Cursor 或首次完成配置后，必须完全退出并重新启动 Cursor，再新开一个对话。配置前已经打开的对话不会加载新连接；使用自定义模型时，请在模型列表中手动选择该模型，不要选择 **Auto**。
+## 账号插件
+
+以下新增插件包含在 **1.0.4 构建**中，点击名称查看详细登录和导入说明：
+
+| 插件 | 登录 / 导入方式 | 积分与条件 |
+| --- | --- | --- |
+| [WorkBuddy](server/plugins/build-in/workbuddy-auth/README.md) | 国内 / 国际官方授权、凭据导入导出 | 积分、套餐；国内个人账号支持手动签到 |
+| [Qoder](server/plugins/build-in/qoder-auth/README.md) | 国内 / 国际分别授权和建池、凭据导入导出 | 套餐、附加和共享积分 |
+| [TeleAgent](server/plugins/build-in/teleagent-auth/README.md) | 独立官方登录窗口、完整凭据导入 | 积分；浏览器登录需先安装并启动过官方客户端 |
+| [Kiro](server/plugins/build-in/kiro-auth/README.md) | 美区 Builder ID 设备授权；美 / 欧区凭据或 API Key 导入 | Credits；暂不提供欧区 Builder ID 或 Social 浏览器登录 |
+
+现有 Codex、Google Antigravity 和 Grok 插件也使用统一账号存储。账号身份和并发持久化测试覆盖了“后登录的账号覆盖先前账号”的问题。
+
+**验证范围：**已通过协议/账号自动化测试、匿名端点检查和各平台构建；真实账号授权、付费模型调用、续期与实际余额仍待实号验证。详情见 [1.0.4 验证记录](support/releases/v1.0.4.md#validation-boundaries)。
 
 ## 模型配置
 
@@ -72,7 +90,7 @@ cursor-byok 是一个开源的本地模型网关。它在你的设备上运行�
 | GPT / OpenAI 系列 | **OpenAI** | **Responses API** |
 | 其他模型 | **OpenAI** | **Chat Completions API** |
 
-GPT 系列建议使用 **Responses API**。如果使用 Chat Completions，可能无法保留提示词缓存，导致速度变慢和费用增加。
+请按服务商实际支持的接口选择协议；缓存行为和计费以该服务返回的用量为准。
 
 ### 常用字段
 
@@ -92,7 +110,7 @@ GPT 系列建议使用 **Responses API**。如果使用 Chat Completions，可�
 
 Cursor 的 Tab 补全由独立的 TAB 服务处理，不经过模型通道。你可以在 **系统设置 → TAB 设置** 中选择以下模式：
 
-- **使用公益服务（默认）**：使用项目作者部署的公共服务，无需额外配置。
+- **使用公益服务（默认）**：使用原项目配置的公共服务，无需额外配置，可用性由该服务决定。
 - **直连**：直接连接当前 Cursor 账号对应的官方 TAB 服务，适合账号拥有官方额度的情况。
 - **自定义**：自行部署 [`cursor-tab-server`](https://github.com/leookun/cursor-byok/tree/archive/v0.0.49/cursor-tab-server)，然后填写 TAB 服务地址。
 
@@ -110,15 +128,15 @@ Cursor 的 Tab 补全由独立的 TAB 服务处理，不经过模型通道。你
 ## 数据流转
 
 ```text
-Cursor 客户端
+Cursor：Agent 请求、工具结果与对话上下文
     │
-    │ Agent 请求与工具结果
     ▼
-cursor-byok 本地服务
+Cursor BYOK 本地服务
+    ├── API 通道 → OpenAI / Anthropic 兼容服务
+    └── 账号插件 → 服务商模型接口 + 账号池
     │
-    │ OpenAI / Anthropic 兼容请求
-    ▼
-你配置的模型 API
+    ├── 本机保存：配置、凭据与对话状态
+    └── 流式模型输出与工具调用 → Cursor
 ```
 
 API Key、模型配置和应用设置保存在本机。模型请求仍会发送到你选择的上游服务商，请根据对应服务商的隐私政策和计费规则使用。
@@ -138,16 +156,19 @@ cursor-byok/
 │   │   └── src-tauri/    # Tauri 桌面生命周期
 ├── server/
 │   ├── src/
-│   │   ├── cursor/    # Cursor 协议适配
+│   │   ├── api/       # Cursor 与管理接口的 HTTP / 流式边界
+│   │   ├── cursor/    # Cursor 适配中的共享领域逻辑
 │   │   ├── run/       # 通用 Agent Runtime 与内部 Port
 │   │   ├── provider/  # 模型供应商适配
 │   │   ├── model/     # 聚合领域模型
 │   │   ├── store/     # SQLite Repository
 │   │   ├── control/   # 管理面 API
-│   │   ├── harness/   # Cursor 本地集成
+│   │   ├── plugin/    # 插件运行时、账号存储与账号池
+│   │   ├── local_app/ # 本地应用状态与生命周期
 │   │   └── search/    # Web 与 Semble 搜索接入
-│   ├── prompt/
-│   └── migrations/
+│   ├── plugins/      # 内置账号插件与共享 SDK
+│   ├── prompt/       # 运行时提示词资源
+│   └── migrations/   # SQLite 数据库结构
 ├── crates/
 │   └── semble-core/   # 本地代码索引与搜索核心库
 ├── protocols/
@@ -155,7 +176,9 @@ cursor-byok/
 ├── support/                     # 仓库辅助设施
 │   ├── cursor-protocol-extractor/ # Cursor 协议提取与 Go 代码生成工具
 │   ├── cursor-capture/            # Cursor 协议抓取和调试工具
+│   ├── promotion/                 # 分享文案、素材入口与渠道说明
 │   └── benchmarks/                # 代码搜索和索引基准测试
+├── assets/banners/    # 可编辑分享图与导出 PNG
 ├── images/            # README 展示图片
 ├── Cargo.toml         # Rust 工作区配置
 └── Makefile           # 常用开发、检查和构建命令
@@ -215,18 +238,21 @@ make build-docker    # 构建 Docker 镜像
 
 ## 社区与反馈
 
-- [中文使用指南](https://docs.leokun.cn/zh/docs)
-- [本 fork 的 GitHub Issues](https://github.com/bargino/cursor-byok/issues)
-- [原上游 Issues（已归档）](https://github.com/leookun/cursor-byok/issues)
-- [Telegram 社区](https://t.me/cursor_byok)
-- QQ 群：`1095916242`、`1094411438`、`1095918002`、`1094419321`
+如果项目对你有帮助，欢迎 **[Star 本仓库](https://github.com/bargino/cursor-byok)**，方便关注后续更新。复现清楚的问题、安装反馈和 Pull Request 都能帮助项目继续完善。
 
-提交问题时，请附上操作系统、cursor-byok 版本、模型类型、请求协议、已脱敏的服务地址、错误信息和复现步骤。请勿公开 API Key 或其他凭据。
+- [本 fork 的 GitHub Issues](https://github.com/bargino/cursor-byok/issues)：问题、功能建议与账号插件反馈。
+- [维护与构建说明](support/fork-maintenance.md)：兼容范围、回归记录和源码构建。
+- [分享素材与文案](support/promotion/README.md)：中英文介绍、三套分享图与渠道说明。
+- [原上游使用指南](https://docs.leokun.cn/zh/docs)：历史安装文档，本 fork 新功能以仓库说明为准。
+
+提交问题时，请附上操作系统、Cursor / Cursor BYOK 版本、模型类型、请求协议、脱敏错误信息和复现步骤。
+
+本项目由 [bargino](https://github.com/bargino) 维护，基于已于 2026 年 10 月 20 日归档的 [leookun/cursor-byok](https://github.com/leookun/cursor-byok)，保留原贡献历史与署名。原[上游路线图](https://github.com/leookun/cursor-byok/discussions/32)、[归档 Issues](https://github.com/leookun/cursor-byok/issues)、[Telegram](https://t.me/cursor_byok) 和 QQ 群（`1095916242`、`1094411438`、`1095918002`、`1094419321`）属于原上游社区；本 fork 的问题请提交到自己的 Issues。
 
 ## 参与贡献
 
-欢迎提交 Issue 和 Pull Request。提交代码前请先阅读项目中的开发说明，并运行 `make check` 确认格式、测试和前端构建检查通过。
+欢迎提交 Issue 和 Pull Request。代码改动前请阅读项目开发说明，并运行与改动相应的检查；完整验证使用 `make check`。
 
 ## 许可证
 
-本项目采用 [MIT License](./LICENSE) 开源。
+核心项目采用 [MIT License](./LICENSE)。各账号插件保留对应第三方许可证与署名，详见插件目录中的 `LICENSE*` 文件。

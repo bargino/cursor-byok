@@ -1,117 +1,114 @@
-> **Community fork by [bargino](https://github.com/bargino).** Based on [leookun/cursor-byok](https://github.com/leookun/cursor-byok), archived on October 20, 2026. The original MIT license and contributor history are preserved.
->
-> **v1.0.3 packages:** [Download for Windows, macOS, and Linux](https://github.com/bargino/cursor-byok/releases/latest). This fork includes binary BidiAppend transport, RunInference, subagent message identity, and context-overflow recovery. See the [maintenance and build notes](support/fork-maintenance.md) for validation and known limitations. Switching from upstream requires a manual installation; this fork uses its own update feed and signing key.
-
 <div align="center">
 
-# cursor-byok
-cursor-byok is a local implementation of Cursor's backend.
-<br>
-<br>
-[Download](https://github.com/bargino/cursor-byok/releases/latest) · [Upstream User Guide](https://docs.leokun.cn) · [Build From Source](support/fork-maintenance.md#build-from-source) · [Report an Issue](https://github.com/bargino/cursor-byok/issues) · [中文版本说明](./README-CN.md)
+# Cursor BYOK
+
+### Your models and accounts. In Cursor.
+
+An open-source desktop gateway for your own model APIs, account pools, and usage tracking.
+
+[中文说明](./README-CN.md) · [Download](#download) · [Quick start](#quick-start) · [Account plugins](#account-plugins) · [Report an issue](https://github.com/bargino/cursor-byok/issues)
 
 [![Release](https://img.shields.io/github/v/release/bargino/cursor-byok?style=flat-square)](https://github.com/bargino/cursor-byok/releases/latest)
-[![Downloads](https://img.shields.io/github/downloads/bargino/cursor-byok/total?style=flat-square)](https://github.com/bargino/cursor-byok/releases)
 [![CI](https://github.com/bargino/cursor-byok/actions/workflows/ci.yml/badge.svg)](https://github.com/bargino/cursor-byok/actions/workflows/ci.yml)
+[![Platforms](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey?style=flat-square)](#download)
 [![License](https://img.shields.io/github/license/bargino/cursor-byok?style=flat-square)](./LICENSE)
-[![Platforms](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey?style=flat-square)](https://github.com/bargino/cursor-byok/releases/latest)
-
-
 
 </div>
 
-![Connect cursor-byok to a wide range of model APIs](./images/en-brand-1.png)
+![Cursor BYOK: your model APIs and account pools in Cursor](./assets/banners/cursor-byok/minimalist-en-1280x640.png)
 
-![cursor-byok dashboard](./images/en-home-1.png)
+Connect OpenAI- and Anthropic-compatible APIs to Cursor, or use account plugins to discover models from services you already use. Manage the connections locally, keep multiple accounts, and inspect model calls and usage in one desktop app.
 
-## About
+**New in the 1.0.4 build:** WorkBuddy, Qoder China/Global, TeleAgent and Kiro plugins, with account pooling and credit queries. The shared account store also fixes concurrent login/refresh overwriting other accounts. See [requirements and validation scope](support/releases/v1.0.4.md).
 
-cursor-byok is an open-source local model gateway for Cursor. It runs a service on your machine that connects Cursor to the model APIs you configure, routes model requests through your own providers, and preserves Cursor Agent capabilities such as tool calling, Skills, and MCP.
+## Why use it?
 
-You can connect OpenAI- and Anthropic-compatible services, customize endpoints, model IDs, API keys, and request parameters, and use model channels beyond the options built into the platform.
+- **Choose your model channel.** Configure endpoint, API key, model ID and request parameters with OpenAI Responses, Chat Completions or Anthropic Messages APIs.
+- **Keep multiple accounts.** Save separate identities, rotate ready accounts and check provider credits. An interrupted request switches accounts only before any output starts.
+- **Use Agent workflows.** Protocol adaptation supports tool calling, Skills, MCP and multi-turn conversations; behavior depends on the selected model and Cursor version.
+- **See what is happening.** Inspect model calls, token usage, cache statistics, connection tests and estimated usage value.
+- **Run locally on your desktop.** Windows, macOS Intel/Apple Silicon and Linux builds are available. Model requests go to the provider you select.
 
-> [!IMPORTANT]
-> cursor-byok is free and open source, but the model APIs you connect may charge for usage. This is an independent project and is not affiliated with or endorsed by Cursor or its developers.
+![Cursor BYOK dashboard showing model calls and token usage](./images/en-home-1.png)
 
-## Features
+*Interface preview with example data. The displayed usage, cache rate and estimated value are not performance benchmarks or savings claims.*
 
-- **Bring your own model channels:** Configure your own API endpoint, credentials, and model IDs.
-- **Multiple API protocols:** Use OpenAI- and Anthropic-compatible APIs or a custom endpoint.
-- **Account plugins:** Sign in to WorkBuddy, Qoder, TeleAgent or Kiro, save multiple accounts, rotate available accounts and query credits. [Login requirements and import formats](support/releases/v1.0.4.md).
-- **Model management:** Add, duplicate, edit, reorder, and batch-test multiple model configurations.
-- **Connection benchmarks:** Measure time to first token, generation speed, and inspect raw provider responses.
-- **Agent workflows:** Keep tool calling, Skills, MCP, and multi-turn conversations available.
-- **Session metrics:** Track token usage, cache hit rate, conversation turns, and estimated value.
-- **Cross-platform:** Run on macOS, Windows, and Linux.
+## Download
 
-## Quick Start
+**Want the new account plugins? Use the 1.0.4 installer build below.** The latest published GitHub Release is currently [v1.0.3](https://github.com/bargino/cursor-byok/releases/tag/v1.0.3), which predates those plugins.
 
-Download a package for your system below, or [build from source](support/fork-maintenance.md#build-from-source). Back up `~/.cursor-byok-v3/` and quit Cursor and Cursor BYOK before switching from the upstream application.
+| Platform | 1.0.4 account-plugin build | Included packages |
+| --- | --- | --- |
+| Windows x64 | [Download artifact ZIP](https://github.com/bargino/cursor-byok/actions/runs/43882978067/artifacts/14234715652) | Setup EXE, MSI, portable ZIP |
+| macOS Apple Silicon | [Download artifact ZIP](https://github.com/bargino/cursor-byok/actions/runs/43887113282/artifacts/14237991128) | ARM64 DMG, application archive |
+| macOS Intel | [Download artifact ZIP](https://github.com/bargino/cursor-byok/actions/runs/43882978067/artifacts/14234398951) | x64 DMG, application archive |
+| Linux x64 | [Download artifact ZIP](https://github.com/bargino/cursor-byok/actions/runs/43882978067/artifacts/14233629111) | AppImage, DEB, RPM, binary archive |
 
-1. Download the latest build for your platform from [GitHub Releases](https://github.com/bargino/cursor-byok/releases/latest).
-2. Launch cursor-byok, open **Model Settings**, and enter the endpoint, API key, and model ID.
-3. Test the model configuration. Once it passes, return to the dashboard and start the service.
-4. After upgrading Cursor or configuring a model for the first time, quit Cursor completely and restart it, then start a new conversation and select the configured model.
+These are GitHub Actions artifacts: **sign in to GitHub**, download the outer ZIP and extract the installer for your system. These four artifacts are scheduled to expire on **December 16, 2026**. They include a version/commit manifest and SHA-256 checksums. They are installer builds, not a published 1.0.4 Release or updater release.
 
-For complete installation steps, system configuration, and Frequently Asked Questions, see the [User Guide](https://docs.leokun.cn).
+Prefer a published release without a GitHub sign-in? [Download v1.0.3](https://github.com/bargino/cursor-byok/releases/tag/v1.0.3). To build the current source, follow the [build guide](support/fork-maintenance.md#build-from-source). macOS packages are not Apple-notarized.
 
-## Model Management
+## Quick start
 
-Model configurations support both OpenAI and Anthropic API protocols. Each model channel can independently define its context window, maximum output tokens, reasoning effort, custom headers, and additional request parameters.
+Before switching from upstream, quit Cursor and Cursor BYOK and back up `~/.cursor-byok-v3/`. This fork uses its own update feed and signing key, so switching requires a manual installation.
 
-![cursor-byok model settings](./images/en-model-1.png)
+1. Install the package for your system. Open **Cursor Configuration** and follow the local CA setup instructions.
+2. Add a model connection:
+   - **API key:** open **Model Settings**, select the provider/protocol, enter endpoint, API key and model ID, then save and test.
+   - **Account plugin (1.0.4):** open **Plugins**, initialize the plugin runtime, enable the provider and choose **Add account**. After authorization, enable the desired models in account management. Repeat to add more accounts.
+3. Keep Cursor BYOK running. Quit Cursor completely, reopen it and start a **new conversation**.
+4. Select your configured model in Cursor. **Auto uses Cursor's official models**, so select the custom model explicitly.
 
-## How It Works
+API keys and account credentials are stored locally. The connected provider determines model access, quotas and billing. Cursor BYOK is free and open source; provider usage may cost money. This is an independent community project, not affiliated with Cursor or the listed providers.
+
+## Account plugins
+
+The following additions are in the **1.0.4 build**. Each plugin has its own setup and import instructions:
+
+| Plugin | Login / import | Balance and setup notes |
+| --- | --- | --- |
+| [WorkBuddy](server/plugins/build-in/workbuddy-auth/README.md) | China/Global official authorization; credential import/export | Credits and packages; manual check-in for China personal accounts |
+| [Qoder](server/plugins/build-in/qoder-auth/README.md) | Separate China/Global authorization and pools; credential import/export | Plan, add-on and shared quota buckets |
+| [TeleAgent](server/plugins/build-in/teleagent-auth/README.md) | Isolated official login or complete credential import | Points; browser login requires the official client installed and started once |
+| [Kiro](server/plugins/build-in/kiro-auth/README.md) | US Builder ID device login; US/EU credential or API key import | Credits; EU Builder ID browser login and Social browser login are not provided |
+
+Codex, Google Antigravity and Grok plugins also use the shared account store. Account identity and concurrent persistence tests cover the earlier issue where a later login could overwrite existing accounts.
+
+**Validation:** automated protocol/account tests, anonymous endpoint checks and platform builds have passed. Real account authorization, paid model calls, token renewal and actual balances still need live validation. Check the [1.0.4 notes](support/releases/v1.0.4.md#validation-boundaries) before choosing a provider.
+
+## Model management
+
+Set the context window, maximum output tokens, reasoning effort, headers and extra request parameters per model. Add, duplicate, edit, reorder or batch-test model configurations.
+
+![Cursor BYOK model settings](./images/en-model-1.png)
+
+## How it works
 
 ```text
-Cursor client
+Cursor: Agent requests, tool results and conversation context
     │
-    │ Agent requests and tool results
     ▼
-cursor-byok local service
+Cursor BYOK on your machine
+    ├── API connection → OpenAI / Anthropic-compatible service
+    └── Account plugin → provider model API + account pool
     │
-    │ OpenAI- / Anthropic-compatible requests
-    ▼
-Your model API
+    ├── Local settings, credentials and conversation state
+    └── Streaming model output and tool calls → Cursor
 ```
 
-cursor-byok handles protocol adaptation, model request forwarding, tool-call coordination, and conversation state on your machine. API keys and application settings are stored locally; requests are still sent to the model provider you configure.
+The gateway handles Cursor protocol adaptation, provider requests, tool-call coordination and conversation state. Compatibility can change when Cursor or a provider updates; report the versions and a redacted reproduction in [Issues](https://github.com/bargino/cursor-byok/issues).
 
-## Why This Project
+## Support and contributing
 
-Many Agent products bundle their tool capabilities with a fixed set of models, subscriptions, and billing options, leaving users limited to the channels offered by the platform.
+If this helps your workflow, **[star this fork](https://github.com/bargino/cursor-byok)** to follow its development. Reproducible bug reports, setup feedback and pull requests are welcome.
 
-cursor-byok is built to return model choice to the user. Developers can make full use of the APIs and credits they already have, choose the models and providers that fit their needs, and self-host related services when required.
+- [Report a bug / request a feature](https://github.com/bargino/cursor-byok/issues)
+- [Maintenance, builds and regression scope](support/fork-maintenance.md)
+- [Share the project: images and copy](support/promotion/README.md)
+- [Upstream user guide](https://docs.leokun.cn) — historical guide; fork-specific features are documented here.
 
-## Roadmap
-
-This fork focuses on Cursor protocol compatibility, reliable subagent execution, and reproducible regression tests. Current scope and validation limits are recorded in the [maintenance notes](support/fork-maintenance.md).
-
-The original [upstream roadmap](https://github.com/leookun/cursor-byok/discussions/32) remains available as historical context.
-
-## Community and Support
-
-- [User Guide](https://docs.leokun.cn)
-- [Fork Issues](https://github.com/bargino/cursor-byok/issues)
-- [Upstream Issues (archived)](https://github.com/leookun/cursor-byok/issues)
-- [Telegram community](https://t.me/cursor_byok)
-- QQ groups: `1095916242`, `1094411438`, `1095918002`, `1094419321`
-
-
-
-## Development and Contributing
-
-Issues and pull requests are welcome. See the [maintenance and build notes](support/fork-maintenance.md) for build commands and validation scope.
-
-## Contributors
-
-<a href="https://github.com/leookun/cursor-byok/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=leookun/cursor-byok" />
-</a>
-
+This community fork is maintained by [bargino](https://github.com/bargino), based on [leookun/cursor-byok](https://github.com/leookun/cursor-byok), archived on October 20, 2026. Original contributor history and attribution are preserved. The original [roadmap](https://github.com/leookun/cursor-byok/discussions/32), [archived Issues](https://github.com/leookun/cursor-byok/issues), [Telegram](https://t.me/cursor_byok) and QQ groups (`1095916242`, `1094411438`, `1095918002`, `1094419321`) belong to the upstream community; use this fork's Issues for its support.
 
 ## License
 
-This project is open source under the [MIT License](./LICENSE).
-
-
+Core project: [MIT](./LICENSE). Account plugin directories retain their respective third-party licenses and attribution; see their `LICENSE*` files.
