@@ -12,7 +12,7 @@ use crate::{
     cursor::{
         protocol::connect::{self, END_STREAM_FLAG},
         services::observability::CursorTraceRecorder,
-        transport::{TransportHandle, TransportRegistry},
+        transport::{StreamRegistration, TransportHandle, TransportRegistry},
     },
     Result,
 };
@@ -122,6 +122,16 @@ impl Drop for LocalRunGuard {
             });
         }
     }
+}
+
+/// Keeps `registration` alive until Cursor stops reading `response`.
+pub fn holding(response: Response<Body>, registration: StreamRegistration) -> Response<Body> {
+    let (parts, body) = response.into_parts();
+    let stream = body.into_data_stream().map(move |chunk| {
+        let _registration = &registration;
+        chunk
+    });
+    Response::from_parts(parts, Body::from_stream(stream))
 }
 
 pub async fn upstream(

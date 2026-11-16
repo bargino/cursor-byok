@@ -1,6 +1,6 @@
 //! Resolves Cursor model selections to configured provider models.
 use crate::{
-    cursor::protocol::proto::agent::v1 as pb,
+    cursor::protocol::proto::{agent::v1 as pb, aiserver::v1::InferenceRequestedModel},
     model::{
         parse_token_count, ModelLatency, ModelSpec, ReasoningSpec, SubagentKind,
         SubagentModelOverride,
@@ -66,6 +66,30 @@ pub fn overrides(
             Ok((kind, selection))
         })
         .collect()
+}
+
+/// Resolves a RunInference model selection with the same parameter rules as AgentService.
+pub fn inference_model(model: &InferenceRequestedModel) -> Result<ModelSpec> {
+    if model.model_id.is_empty() {
+        return Err(Error::Protocol(
+            "Cursor RunInference does not select a model".into(),
+        ));
+    }
+    let requested = pb::RequestedModel {
+        model_id: model.model_id.clone(),
+        max_mode: model.max_mode,
+        parameters: model
+            .parameters
+            .iter()
+            .map(|parameter| pb::requested_model::ModelParameterValue {
+                id: parameter.id.clone(),
+                value: parameter.value.clone(),
+            })
+            .collect(),
+        built_in_model: model.built_in_model,
+        ..Default::default()
+    };
+    from_requested(&requested, None)
 }
 
 pub fn subagent_kind(value: &str) -> SubagentKind {

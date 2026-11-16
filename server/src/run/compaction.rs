@@ -38,13 +38,18 @@ pub(super) fn input_budget(prepared: &PreparedRun) -> Option<u64> {
 ///
 /// Providers report this as a plain 400 with prose, so there is nothing
 /// structured to match on. Anthropic says "prompt is too long"; OpenAI-style
-/// gateways use `context_length_exceeded` or "maximum context length".
+/// gateways use `context_length_exceeded`, `ContextWindowExceededError`, or
+/// prose describing input that is longer than the model's context length.
 pub(super) fn is_context_overflow(message: &str) -> bool {
     let lowered = message.to_ascii_lowercase();
     lowered.contains("prompt is too long")
         || lowered.contains("context window exceeded")
         || lowered.contains("model_context_window_exceeded")
         || lowered.contains("context_length_exceeded")
+        || lowered.contains("contextwindowexceedederror")
+        || (lowered.contains("the input")
+            && lowered.contains("tokens")
+            && lowered.contains("is longer than the model's context length"))
         || (lowered.contains("maximum context length") && lowered.contains("token"))
 }
 
@@ -311,6 +316,24 @@ mod tests {
         assert!(!is_context_overflow("429 Too Many Requests"));
         assert!(!is_context_overflow(
             "This model does not support assistant message prefill"
+        ));
+    }
+
+    #[test]
+    fn gateway_context_overflow_refusals_are_recognized() {
+        assert!(is_context_overflow("gateway.ContextWindowExceededError"));
+        assert!(is_context_overflow(
+            "The input (616427 tokens) is longer than the model's context length (524288 tokens)."
+        ));
+        assert!(is_context_overflow(
+            r#"Anthropic 400 Bad Request: {"error":{"message":"gateway.ContextWindowExceededError: OpenAIException - {\"message\":\"The input (616427 tokens) is longer than the model's context length (524288 tokens).\",\"type\":\"BadRequestError\",\"code\":400}","type":"400"},"type":"error"}"#
+        ));
+
+        assert!(!is_context_overflow(
+            "400 Bad Request: The output (4096 tokens) is longer than the model's context length."
+        ));
+        assert!(!is_context_overflow(
+            "400 Bad Request: The input must include valid messages; the model's context length is 524288 tokens."
         ));
     }
 

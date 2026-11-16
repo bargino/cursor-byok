@@ -4,7 +4,10 @@ use std::{env, path::PathBuf};
 fn main() {
     let manifest = PathBuf::from(env::var("CARGO_MANIFEST_DIR").expect("manifest directory"));
     let proto_dir = manifest.join("../protocols/cursor");
-    let protos = [proto_dir.join("agent_v1.proto")];
+    let protos = [
+        proto_dir.join("agent_v1.proto"),
+        proto_dir.join("aiserver_run_inference_v1.proto"),
+    ];
     let aiserver_proto = proto_dir.join("aiserver_v1.proto");
 
     env::set_var(
@@ -13,6 +16,9 @@ fn main() {
     );
 
     prost_build::Config::new()
+        // UserMessage identity includes selected folders. Keep their directory
+        // metadata encoding stable across decoding and retries.
+        .btree_map([".agent.v1.LsDirectoryTreeNode.full_subtree_extension_counts"])
         .compile_protos(
             &protos,
             &[

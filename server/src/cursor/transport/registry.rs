@@ -12,8 +12,8 @@ use tokio::sync::{mpsc, Mutex, Notify};
 
 use crate::{
     cursor::{
-        conversation::ConversationRegistry, prompting::PromptCompiler,
-        services::observability::CursorTraceService,
+        conversation::ConversationRegistry, inference::InferenceRegistry,
+        prompting::PromptCompiler, services::observability::CursorTraceService,
     },
     plugin::PluginRegistry,
     provider::Provider,
@@ -34,6 +34,8 @@ struct RegistryInner {
     next_local_generation: AtomicU64,
     upstream: Mutex<HashMap<String, u64>>,
     route_changed: Notify,
+    streams: parking_lot::Mutex<HashMap<String, OpenStream>>,
+    inference: InferenceRegistry,
     store: Store,
     traces: CursorTraceService,
     web_cache: WebCache,
@@ -46,6 +48,46 @@ struct LocalTransport {
     generation: u64,
     handle: TransportHandle,
 }
+
+/// The Cursor downstream stream a request ID belongs to. Both protocols send their
+/// client messages through the same `BidiAppend` call, so only the stream tells them apart.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum StreamKind {
+    /// `agent.v1.AgentService/RunSSE`: BYOK runs the agent loop.
+    Agent,
+    /// `aiserver.v1.InferenceService/RunInferenceSSE`: Cursor runs the agent loop.
+    Inference,
+}
+
+struct OpenStream {
+    kind: StreamKind,
+    open: usize,
+}
+
+/// Keeps a request ID's stream kind registered while its downstream response is alive.
+pub struct StreamRegistration {
+    registry: std::sync::Weak<RegistryInner>,
+    request_id: String,
+}
+
+impl Drop for StreamRegistration {
+    fn drop(&mut self) {
+        let Some(registry) = self.registry.upgrade() else {
+            return;
+        };
+        let mut streams = registry.streams.lock();
+        if let Some(stream) = streams.get_mut(&self.request_id) {
+            stream.open -= 1;
+            if stream.open == 0 {
+                streams.remove(&self.request_id);
+            }
+        }
+    }
+}
+
+/// How long a BidiAppend that does not decode as an AgentService message waits for its
+/// RunInferenceSSE stream. The client opens the stream and starts appending concurrently.
+const STREAM_KIND_WAIT: std::time::Duration = std::time::Duration::from_secs(5);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TransportRoute {
@@ -116,6 +158,8 @@ impl TransportRegistry {
                 next_local_generation: AtomicU64::new(1),
                 upstream: Mutex::new(HashMap::new()),
                 route_changed: Notify::new(),
+                streams: parking_lot::Mutex::new(HashMap::new()),
+                inference: InferenceRegistry::new(store.clone(), provider.clone()),
                 traces: CursorTraceService::new(store.clone()),
                 conversations: ConversationRegistry::new(
                     store.clone(),
@@ -152,6 +196,75 @@ impl TransportRegistry {
 
     pub fn conversations(&self) -> &ConversationRegistry {
         &self.inner.conversations
+    }
+
+    pub fn inference(&self) -> &InferenceRegistry {
+        &self.inner.inference
+    }
+
+    /// Records which downstream stream Cursor opened for `request_id`.
+    pub fn open_stream(&self, request_id: &str, kind: StreamKind) -> StreamRegistration {
+        let mut streams = self.inner.streams.lock();
+        let stream = streams
+            .entry(request_id.into())
+            .or_insert(OpenStream { kind, open: 0 });
+        stream.kind = kind;
+        stream.open += 1;
+        drop(streams);
+        self.inner.route_changed.notify_waiters();
+        StreamRegistration {
+            registry: Arc::downgrade(&self.inner),
+            request_id: request_id.into(),
+        }
+    }
+
+    /// Picks the protocol of a BidiAppend. A registered stream or an existing transport
+    /// decides directly; otherwise an append that decodes as an AgentService message is one,
+    /// and anything else waits briefly for its RunInferenceSSE stream.
+    pub async fn stream_kind(&self, request_id: &str, decodes_as_agent: bool) -> StreamKind {
+        if let Some(kind) = self.registered_kind(request_id).await {
+            return kind;
+        }
+        if decodes_as_agent {
+            return StreamKind::Agent;
+        }
+        let waited = tokio::time::timeout(STREAM_KIND_WAIT, async {
+            loop {
+                let changed = self.inner.route_changed.notified();
+                tokio::pin!(changed);
+                changed.as_mut().enable();
+                if let Some(kind) = self.registered_kind(request_id).await {
+                    return kind;
+                }
+                changed.await;
+            }
+        })
+        .await;
+        waited.unwrap_or(StreamKind::Agent)
+    }
+
+    async fn registered_kind(&self, request_id: &str) -> Option<StreamKind> {
+        if let Some(stream) = self.inner.streams.lock().get(request_id) {
+            return Some(stream.kind);
+        }
+        if self.inner.local.lock().await.contains_key(request_id) {
+            return Some(StreamKind::Agent);
+        }
+        if self.inner.inference.contains(request_id).await {
+            return Some(StreamKind::Inference);
+        }
+        None
+    }
+
+    /// Creates the local RunInference session for `request_id` and wakes its waiting stream.
+    pub async fn create_inference(
+        &self,
+        request_id: &str,
+        byok: crate::cursor::inference::ByokModel,
+    ) -> Arc<crate::cursor::inference::InferenceSession> {
+        let session = self.inner.inference.create(request_id, byok).await;
+        self.inner.route_changed.notify_waiters();
+        session
     }
 
     pub async fn get_or_create(&self, request_id: &str) -> Result<TransportHandle> {
@@ -236,7 +349,9 @@ impl TransportRegistry {
             let changed = self.inner.route_changed.notified();
             tokio::pin!(changed);
             changed.as_mut().enable();
-            if self.inner.local.lock().await.contains_key(request_id) {
+            if self.inner.local.lock().await.contains_key(request_id)
+                || self.inner.inference.contains(request_id).await
+            {
                 return TransportRoute::Local;
             }
             if let Some(generation) = self.inner.upstream.lock().await.get(request_id).copied() {
@@ -258,6 +373,7 @@ impl TransportRegistry {
 
     pub async fn shutdown(&self) {
         self.inner.conversations.shutdown().await;
+        self.inner.inference.shutdown().await;
         let handles = std::mem::take(&mut *self.inner.local.lock().await);
         self.inner.upstream.lock().await.clear();
         for transport in handles.into_values() {

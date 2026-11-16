@@ -12,7 +12,7 @@ use crate::{
     api::cursor::{
         bidi,
         proxy::{self, CursorProxy},
-        run_sse,
+        run_inference, run_sse,
     },
     cursor::{
         protocol::{
@@ -21,9 +21,9 @@ use crate::{
         },
         services::{
             account, analytics, commit_message, compatibility, entitlement::FreeEntitlementCache,
-            knowledge, model_catalog, server_config, tab,
+            knowledge, model_catalog, server_config, tab, turn_labeling,
         },
-        transport::{TransportParent, TransportRegistry},
+        transport::{StreamKind, TransportParent, TransportRegistry},
     },
     Result,
 };
@@ -47,6 +47,15 @@ fn router_with_proxy(
     Router::new()
         .route("/__byok-api__/healthz", get(health))
         .route("/agent.v1.AgentService/RunSSE", post(run_sse_handler))
+        .route(run_inference::SSE_PATH, post(run_inference_sse_handler))
+        .route(
+            turn_labeling::FOLLOWUP_CLASSIFICATION_PATH,
+            post(turn_labeling::followup_classification),
+        )
+        .route(
+            turn_labeling::POST_TURN_LABELING_PATH,
+            post(turn_labeling::post_turn_labeling),
+        )
         .route("/aiserver.v1.BidiService/BidiAppend", post(bidi_handler))
         .route(
             "/aiserver.v1.AiService/AvailableDocs",
@@ -195,6 +204,7 @@ async fn run_sse_handler(
 ) -> Result<Response<Body>> {
     let (parts, body) = buffered(request).await?;
     let request: agent::BidiRequestId = connect::decode_unary(&body)?;
+    let registration = registry.open_stream(&request.request_id, StreamKind::Agent);
     let route = registry.wait_route(&request.request_id).await;
     let trace = registry.trace(&request.request_id);
     trace.resume();
@@ -203,9 +213,9 @@ async fn run_sse_handler(
         body.clone(),
         serde_json::json!({"request_id": request.request_id}),
     );
-    match route {
+    let response = match route {
         crate::cursor::transport::TransportRoute::Local => {
-            run_sse::stream(&registry, &request.request_id).await
+            run_sse::stream(&registry, &request.request_id).await?
         }
         crate::cursor::transport::TransportRoute::Upstream(generation) => {
             let response = proxy::forward(
@@ -213,16 +223,27 @@ async fn run_sse_handler(
                 Request::from_parts(parts, Body::from(body)),
             )
             .await?;
-            Ok(run_sse::upstream(
+            run_sse::upstream(
                 registry,
                 request.request_id,
                 generation,
                 response,
                 Some(trace),
             )
-            .await)
+            .await
         }
-    }
+    };
+    Ok(run_sse::holding(response, registration))
+}
+
+async fn run_inference_sse_handler(
+    State(registry): State<TransportRegistry>,
+    Extension(proxy): Extension<CursorProxy>,
+    request: Request<Body>,
+) -> Result<Response<Body>> {
+    let (parts, body) = buffered(request).await?;
+    let request: agent::BidiRequestId = connect::decode_unary(&body)?;
+    run_inference::sse(registry, proxy, parts, body, request.request_id).await
 }
 
 async fn bidi_handler(
@@ -232,7 +253,15 @@ async fn bidi_handler(
 ) -> Result<Response<Body>> {
     let (parts, body) = buffered(request).await?;
     let request: ai::BidiAppendRequest = connect::decode_unary(&body)?;
-    let decoded = bidi::decode(&request)?;
+    let raw = bidi::raw(&request)?;
+    let decoded = bidi::decode(&raw);
+    let decoded = match registry.stream_kind(&raw.request_id, decoded.is_ok()).await {
+        StreamKind::Inference => {
+            let request = Request::from_parts(parts, Body::from(body));
+            return run_inference::append(&registry, proxy, request, raw).await;
+        }
+        StreamKind::Agent => decoded?,
+    };
     let first_model = decoded.model_id().map(str::to_owned);
     let conversation_id = decoded.conversation_id().map(str::to_owned);
     let trace_metadata = decoded.trace_metadata();

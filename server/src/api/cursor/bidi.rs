@@ -153,29 +153,49 @@ fn history_image_count(history: &agent::ConversationHistory) -> usize {
         .sum()
 }
 
-pub fn decode(request: &ai::BidiAppendRequest) -> Result<DecodedAppend> {
+/// One BidiAppend before its payload is decoded; AgentService and RunInference share the call.
+pub struct RawAppend {
+    pub request_id: String,
+    pub seqno: i64,
+    pub payload: Vec<u8>,
+}
+
+pub fn raw(request: &ai::BidiAppendRequest) -> Result<RawAppend> {
     let request_id = request
         .request_id
         .as_ref()
         .map(|id| id.request_id.as_str())
         .filter(|id| !id.is_empty())
         .ok_or_else(|| Error::Protocol("BidiAppend request_id is required".into()))?;
-    if !request.data_binary.is_empty() {
-        return Err(Error::Protocol(
-            "BidiAppend data_binary is not part of the captured protocol".into(),
-        ));
-    }
-    if request.data.is_empty() {
-        return Err(Error::Protocol(
-            "BidiAppend contains no AgentClientMessage".into(),
-        ));
-    }
-    let payload = hex::decode(&request.data)
-        .map_err(|error| Error::Protocol(format!("invalid BidiAppend hex: {error}")))?;
-    Ok(DecodedAppend {
+    // Cursor selects binary or hex encoding with a live feature gate. Reject
+    // requests containing both so local routing and upstream decoding cannot disagree.
+    let payload = match (request.data.is_empty(), request.data_binary.is_empty()) {
+        (true, false) => request.data_binary.clone(),
+        (false, true) => hex::decode(&request.data)
+            .map_err(|error| Error::Protocol(format!("invalid BidiAppend hex: {error}")))?,
+        (true, true) => {
+            return Err(Error::Protocol(
+                "BidiAppend contains no client message".into(),
+            ))
+        }
+        (false, false) => {
+            return Err(Error::Protocol(
+                "BidiAppend contains both binary and hex client messages".into(),
+            ))
+        }
+    };
+    Ok(RawAppend {
         request_id: request_id.into(),
         seqno: request.append_seqno,
-        message: agent::AgentClientMessage::decode(payload.as_slice())?,
+        payload,
+    })
+}
+
+pub fn decode(append: &RawAppend) -> Result<DecodedAppend> {
+    Ok(DecodedAppend {
+        request_id: append.request_id.clone(),
+        seqno: append.seqno,
+        message: agent::AgentClientMessage::decode(append.payload.as_slice())?,
     })
 }
 

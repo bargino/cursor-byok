@@ -503,6 +503,43 @@ fn windowed_model(model_id: &str, context_window_tokens: Option<u64>) -> ModelCo
 
 #[tokio::test]
 async fn provider_overflow_refusal_compacts_and_retries_once() {
+    assert_provider_overflow_compacts_and_retries_once(
+        "Anthropic 400 Bad Request: {\"type\":\"error\",\"error\":{\"type\":\
+         \"invalid_request_error\",\"message\":\"prompt is too long: 1002148 tokens > \
+         1000000 maximum\"}}",
+        None,
+    )
+    .await;
+}
+
+#[tokio::test]
+async fn gateway_context_overflow_type_compacts_and_retries_once() {
+    assert_provider_overflow_compacts_and_retries_once(
+        r#"Anthropic 400 Bad Request: {"error":{"message":"gateway.ContextWindowExceededError: OpenAIException","type":"400"},"type":"error"}"#,
+        None,
+    )
+    .await;
+}
+
+#[tokio::test]
+async fn gateway_context_overflow_message_compacts_and_retries_once() {
+    assert_provider_overflow_compacts_and_retries_once(
+        r#"Anthropic 400 Bad Request: {"error":{"message":"The input (616427 tokens) is longer than the model's context length (524288 tokens).","type":"400"},"type":"error"}"#,
+        None,
+    )
+    .await;
+}
+
+#[tokio::test]
+async fn gateway_context_overflow_during_summary_falls_back_and_retries_once() {
+    let error = r#"Anthropic 400 Bad Request: {"error":{"message":"gateway.ContextWindowExceededError: The input (616427 tokens) is longer than the model's context length (524288 tokens).","type":"400"},"type":"error"}"#;
+    assert_provider_overflow_compacts_and_retries_once(error, Some(error)).await;
+}
+
+async fn assert_provider_overflow_compacts_and_retries_once(
+    error: &str,
+    summary_error: Option<&str>,
+) {
     // The estimate cleared the compaction check, but the provider counted
     // more and refused. The refusal is the trigger the estimate missed.
     let (_directory, store) = fixtures::temp_store().await;
@@ -512,13 +549,14 @@ async fn provider_overflow_refusal_compacts_and_retries_once() {
         .unwrap();
     let provider = fake_provider::FakeProvider::default();
     provider.push(text_response("first answer", 4_000, 12));
-    provider.push_error(cursor_server::Error::Provider(
-        "Anthropic 400 Bad Request: {\"type\":\"error\",\"error\":{\"type\":\
-         \"invalid_request_error\",\"message\":\"prompt is too long: 1002148 tokens > \
-         1000000 maximum\"}}"
-            .into(),
-    ));
-    provider.push(text_response("durable summary", 3_000, 20));
+    provider.push_error(cursor_server::Error::Provider(error.into()));
+    let summary_text = if let Some(error) = summary_error {
+        provider.push_error(cursor_server::Error::Provider(error.into()));
+        "Durable recent conversation state:"
+    } else {
+        provider.push(text_response("durable summary", 3_000, 20));
+        "durable summary"
+    };
     provider.push(text_response("answer after compaction", 500, 20));
     let assets = PromptAssets::load(
         std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -566,6 +604,7 @@ async fn provider_overflow_refusal_compacts_and_retries_once() {
         4,
         "refused call, summary call, retried call"
     );
+    assert!(requests[1].history.starts_with(&requests[0].history));
     assert!(requests[2].prompt.tools.is_empty());
     assert_eq!(
         requests[2].history.last().unwrap().role,
@@ -573,13 +612,21 @@ async fn provider_overflow_refusal_compacts_and_retries_once() {
         "the summarizer history must end with a user message"
     );
     assert!(!requests[3].prompt.tools.is_empty());
+    let current_user = requests[1].history.last().unwrap();
+    assert_eq!(requests[3].history.last().unwrap(), current_user);
+    assert!(!requests[3]
+        .history
+        .iter()
+        .any(|message| matches!(&message.content,
+            ProjectedContent::Assistant { text, .. } if text == "first answer"
+        )));
     assert!(requests[3]
         .history
         .iter()
         .any(|message| match &message.content {
             ProjectedContent::Parts(parts) =>
                 matches!(parts.as_slice(), [ContentPart::Text { text }]
-            if text.contains("durable summary")),
+            if text.contains(summary_text)),
             _ => false,
         }));
 }

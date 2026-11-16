@@ -1,7 +1,10 @@
 //! Correlates Tool completion events and gates final result delivery.
 use std::collections::BTreeMap;
 
-use crate::{cursor::protocol::proto::agent::v1 as pb, model::limit_tool_result_text};
+use crate::{
+    cursor::protocol::proto::{agent::v1 as pb, prost_json},
+    model::limit_tool_result_text,
+};
 
 const KIB: usize = 1024;
 const READ_CONTENT_LIMIT: usize = 64 * KIB;
@@ -455,7 +458,7 @@ fn structured_json_len(value: &Option<prost_types::Struct>) -> usize {
                 value
                     .fields
                     .iter()
-                    .map(|(key, value)| (key.clone(), super::prost_json(value)))
+                    .map(|(key, value)| (key.clone(), prost_json(value)))
                     .collect(),
             ))
             .ok()

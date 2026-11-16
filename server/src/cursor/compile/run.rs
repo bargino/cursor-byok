@@ -1,6 +1,7 @@
 //! Compiles an AgentRunRequest into a PreparedRun.
 use std::collections::BTreeMap;
 
+use prost::Message;
 use uuid::Uuid;
 
 use crate::{
@@ -423,7 +424,7 @@ fn action(request: &pb::AgentRunRequest) -> Result<ActionProjection> {
     };
     match action {
         pb::conversation_action::Action::UserMessageAction(action) => {
-            let user = action.user_message.as_ref().ok_or_else(|| {
+            let mut user = action.user_message.clone().ok_or_else(|| {
                 Error::Protocol("Cursor user message action has no UserMessage".into())
             })?;
             let mode = if user.mode == pb::AgentMode::Unspecified as i32 {
@@ -432,14 +433,27 @@ fn action(request: &pb::AgentRunRequest) -> Result<ActionProjection> {
                 user.mode
             };
             if user.message_id.is_empty() {
-                return Err(Error::Protocol(
-                    "Cursor user message action has no message_id".into(),
-                ));
+                // Proto3 permits omitted scalar IDs, including synthetic subagent
+                // kickoff messages. Scope their identity to the input and preceding
+                // history, not the transport/run ID: retries can use a new transport,
+                // while the same prompt after a checkpoint must start a new turn.
+                let state = request.conversation_state.as_ref();
+                let identity = serde_json::to_vec(&(
+                    request.conversation_id.as_deref(),
+                    state
+                        .map(|state| state.root_prompt_messages_json.as_slice())
+                        .unwrap_or_default(),
+                    state
+                        .map(|state| state.turns.as_slice())
+                        .unwrap_or_default(),
+                    user.encode_to_vec(),
+                ))?;
+                user.message_id = format!("byok-user:{}", BlobId::digest(&identity).to_base64());
             }
             if user.text.trim() == "/summarize" {
                 return Ok(ActionProjection {
                     mode,
-                    turn_user: Some(user.clone()),
+                    turn_user: Some(user),
                     action_context: String::new(),
                     event_id: None,
                     input_id: None,
@@ -464,7 +478,7 @@ fn action(request: &pb::AgentRunRequest) -> Result<ActionProjection> {
             let input_id = format!("cursor:user:{}", user.message_id);
             Ok(ActionProjection {
                 mode,
-                turn_user: Some(user.clone()),
+                turn_user: Some(user),
                 action_context: context.join("\n\n"),
                 event_id: None,
                 input_id: Some(input_id),
@@ -610,5 +624,50 @@ fn exec_context(
             .unwrap_or_default(),
         admin_command_denylist: request_context.admin_command_denylist.clone(),
         mcp_routes: context::meta_mcp_routes(request_context),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn idless_user_identity_survives_redecoding_folder_metadata() {
+        let wire = pb::UserMessage {
+            text: "Inspect this folder".into(),
+            selected_context: Some(pb::SelectedContext {
+                folders: vec![pb::SelectedFolder {
+                    path: "/workspace".into(),
+                    directory_tree: Some(pb::LsDirectoryTreeNode {
+                        full_subtree_extension_counts: [("rs".into(), 2), ("md".into(), 3)]
+                            .into_iter()
+                            .collect(),
+                        ..Default::default()
+                    }),
+                    ..Default::default()
+                }],
+                ..Default::default()
+            }),
+            ..Default::default()
+        }
+        .encode_to_vec();
+        let mut first_id = None;
+        for _ in 0..32 {
+            let request = pb::AgentRunRequest {
+                conversation_id: Some("child".into()),
+                action: Some(pb::ConversationAction {
+                    action: Some(pb::conversation_action::Action::UserMessageAction(
+                        pb::UserMessageAction {
+                            user_message: Some(pb::UserMessage::decode(wire.as_slice()).unwrap()),
+                            ..Default::default()
+                        },
+                    )),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            };
+            let id = action(&request).unwrap().turn_user.unwrap().message_id;
+            assert_eq!(first_id.get_or_insert_with(|| id.clone()), &id);
+        }
     }
 }

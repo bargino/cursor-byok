@@ -7,7 +7,12 @@ pub mod agent {
 }
 
 pub mod aiserver {
+    #[allow(clippy::large_enum_variant)]
     pub mod v1 {
+        // Generated: the RunInference message family (aiserver_run_inference_v1.proto).
+        include!(concat!(env!("OUT_DIR"), "/aiserver.v1.rs"));
+
+        // Hand-written: validated subsets of the extracted aiserver_v1.proto.
         #[derive(Clone, PartialEq, ::prost::Message)]
         pub struct BidiRequestId {
             #[prost(string, tag = "1")]
@@ -103,5 +108,27 @@ pub mod aiserver {
                 Internal = 59,
             }
         }
+    }
+}
+
+/// Converts a protobuf well-known `Value` into JSON.
+pub fn prost_json(value: &prost_types::Value) -> serde_json::Value {
+    use prost_types::value::Kind;
+    use serde_json::Value;
+    match value.kind.as_ref() {
+        None | Some(Kind::NullValue(_)) => Value::Null,
+        Some(Kind::NumberValue(value)) => serde_json::Number::from_f64(*value)
+            .map(Value::Number)
+            .unwrap_or(Value::Null),
+        Some(Kind::StringValue(value)) => Value::String(value.clone()),
+        Some(Kind::BoolValue(value)) => Value::Bool(*value),
+        Some(Kind::StructValue(value)) => Value::Object(
+            value
+                .fields
+                .iter()
+                .map(|(key, value)| (key.clone(), prost_json(value)))
+                .collect(),
+        ),
+        Some(Kind::ListValue(value)) => Value::Array(value.values.iter().map(prost_json).collect()),
     }
 }

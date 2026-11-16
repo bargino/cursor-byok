@@ -4,6 +4,7 @@ mod ca;
 mod process;
 mod proxy;
 mod settings;
+mod statsig;
 
 use std::{net::SocketAddr, sync::Arc};
 
@@ -192,6 +193,11 @@ impl CursorHarness {
             // sooner; it is optional, so a failed probe or kill must not block takeover.
             if let Err(error) = process::terminate_cursor().await {
                 tracing::warn!(%error, "could not terminate Cursor before applying proxy settings");
+            }
+            // The next Cursor window picks its agent protocol from this cache before it
+            // reaches BYOK, so it must already carry the local gates.
+            if let Err(error) = statsig::pin_cached_bootstrap().await {
+                tracing::warn!(%error, "could not pin Cursor's cached Statsig bootstrap");
             }
         }
         if proxy.running() {
