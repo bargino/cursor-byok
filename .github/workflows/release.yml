@@ -156,6 +156,7 @@ jobs:
         with:
           projectPath: apps/desktop
           tagName: v__VERSION__
+          releaseCommitish: ${{ github.event.repository.default_branch }}
           releaseName: Cursor BYOK v__VERSION__
           releaseBody: ${{ contains(needs.prepare.outputs.version, '-') && 'Beta release. Download the installer for your platform from the assets below.' || 'Download the installer for your platform from the assets below.' }}
           releaseDraft: true

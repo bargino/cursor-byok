@@ -66,6 +66,7 @@ The three listed Proto files are required build inputs and must be committed. Ke
 7. Validate the workflow YAML and inspect the staged diff. Ensure `.tauri/`, unrelated local files, and unrelated user changes are not staged.
 8. Use the `tauri-action@v1` input `uploadUpdaterJson: true`; `includeUpdaterJson` is not a valid v1 input.
 9. Stable Windows releases include both NSIS and MSI; keep `updaterJsonPreferNsis: true`. Check that the release notes exist at `support/releases/v<version>.md` and that the checksum step covers all uploaded assets before publication.
+10. Set `releaseCommitish` to the repository's default branch after validating that the version tag already exists. This controls release metadata; builds still check out the validated tag. A stale workflow commit as the release target can require a Workflows permission that `GITHUB_TOKEN` cannot obtain.
 
 ## Publish and verify
 
