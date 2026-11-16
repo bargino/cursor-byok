@@ -1,6 +1,6 @@
 > **Community fork by [bargino](https://github.com/bargino).** Based on [leookun/cursor-byok](https://github.com/leookun/cursor-byok), archived on October 20, 2026. The original MIT license and contributor history are preserved.
 >
-> This fork currently publishes **source updates** for binary BidiAppend transport, RunInference, subagent message identity, and context-overflow recovery. See the [maintenance and build notes](support/fork-maintenance.md) for scope, validation, and known limitations. Upstream installers and automatic updates do not contain these changes; this fork has no installer release yet.
+> **v1.0.2 packages:** [Download for Windows, macOS, and Linux](https://github.com/bargino/cursor-byok/releases/latest). This fork includes binary BidiAppend transport, RunInference, subagent message identity, and context-overflow recovery. See the [maintenance and build notes](support/fork-maintenance.md) for validation and known limitations. Switching from upstream requires a manual installation; this fork uses its own update feed and signing key.
 
 <div align="center">
 
@@ -8,13 +8,13 @@
 cursor-byok is a local implementation of Cursor's backend.
 <br>
 <br>
-[Upstream User Guide](https://docs.leokun.cn) · [Build This Fork](support/fork-maintenance.md#build-from-source) · [Report an Issue](https://github.com/bargino/cursor-byok/issues) · [中文版本说明](./README-CN.md)
+[Download](https://github.com/bargino/cursor-byok/releases/latest) · [Upstream User Guide](https://docs.leokun.cn) · [Build From Source](support/fork-maintenance.md#build-from-source) · [Report an Issue](https://github.com/bargino/cursor-byok/issues) · [中文版本说明](./README-CN.md)
 
-[![Upstream Release](https://img.shields.io/github/v/release/leookun/cursor-byok?style=flat-square&label=upstream%20release)](https://github.com/leookun/cursor-byok/releases/latest)
-[![Upstream Downloads](https://img.shields.io/github/downloads/leookun/cursor-byok/total?style=flat-square&label=upstream%20downloads)](https://github.com/leookun/cursor-byok/releases)
+[![Release](https://img.shields.io/github/v/release/bargino/cursor-byok?style=flat-square)](https://github.com/bargino/cursor-byok/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/bargino/cursor-byok/total?style=flat-square)](https://github.com/bargino/cursor-byok/releases)
 [![CI](https://github.com/bargino/cursor-byok/actions/workflows/ci.yml/badge.svg)](https://github.com/bargino/cursor-byok/actions/workflows/ci.yml)
-[![License](https://img.shields.io/github/license/leookun/cursor-byok?style=flat-square)](./LICENSE)
-[![Platforms](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey?style=flat-square)](https://github.com/leookun/cursor-byok/releases/latest)
+[![License](https://img.shields.io/github/license/bargino/cursor-byok?style=flat-square)](./LICENSE)
+[![Platforms](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey?style=flat-square)](https://github.com/bargino/cursor-byok/releases/latest)
 
 
 
@@ -45,13 +45,12 @@ You can connect OpenAI- and Anthropic-compatible services, customize endpoints, 
 
 ## Quick Start
 
-To use this fork's changes, follow [Build from source](support/fork-maintenance.md#build-from-source). The following instructions describe the original upstream installation, whose binaries do not include this fork's changes.
+Download a package for your system below, or [build from source](support/fork-maintenance.md#build-from-source). Back up `~/.cursor-byok-v3/` and quit Cursor and Cursor BYOK before switching from the upstream application.
 
-1. Download the latest build for your platform from [GitHub Releases](https://github.com/leookun/cursor-byok/releases/latest).
+1. Download the latest build for your platform from [GitHub Releases](https://github.com/bargino/cursor-byok/releases/latest).
 2. Launch cursor-byok, open **Model Settings**, and enter the endpoint, API key, and model ID.
 3. Test the model configuration. Once it passes, return to the dashboard and start the service.
-4. Test the model configuration. Once it passes, return to the dashboard and start the service.
-5. After upgrading Cursor or configuring a model for the first time, quit Cursor completely and restart it, then start a new conversation and select the configured model.
+4. After upgrading Cursor or configuring a model for the first time, quit Cursor completely and restart it, then start a new conversation and select the configured model.
 
 For complete installation steps, system configuration, and Frequently Asked Questions, see the [User Guide](https://docs.leokun.cn).
 

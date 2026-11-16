@@ -87,19 +87,19 @@ jobs:
         include:
           - platform: linux-x86_64
             os: ubuntu-22.04
-            args: ""
+            args: "--bundles appimage,deb,rpm"
             target: ""
           - platform: windows-x86_64
             os: windows-latest
-            args: "--bundles nsis"
+            args: "--bundles nsis,msi"
             target: ""
           - platform: macos-aarch64
             os: macos-15
-            args: "--target aarch64-apple-darwin"
+            args: "--target aarch64-apple-darwin --bundles app,dmg"
             target: aarch64-apple-darwin
           - platform: macos-x86_64
             os: macos-15-intel
-            args: "--target x86_64-apple-darwin"
+            args: "--target x86_64-apple-darwin --bundles app,dmg"
             target: x86_64-apple-darwin
 
     runs-on: ${{ matrix.os }}
@@ -147,6 +147,8 @@ jobs:
           releaseDraft: true
           prerelease: false
           uploadUpdaterJson: true
+          uploadUpdaterSignatures: true
+          updaterJsonPreferNsis: true
           args: ${{ matrix.args }}
 
       - name: Package legacy Linux updater asset
@@ -276,8 +278,19 @@ jobs:
           VERSION: ${{ needs.prepare.outputs.version }}
         run: gh release upload "v${VERSION}" legacy-update/* --clobber
 
+      - name: Generate and upload SHA-256 checksums
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+        shell: bash
+        run: |
+          mkdir -p checksum-assets
+          gh release download "v${VERSION}" --dir checksum-assets
+          (cd checksum-assets && sha256sum -- * > ../SHA256SUMS.txt)
+          gh release upload "v${VERSION}" SHA256SUMS.txt --clobber
+
       - name: Publish the completed release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ needs.prepare.outputs.version }}
-        run: gh release edit "v${VERSION}" --draft=false --latest
+        run: gh release edit "v${VERSION}" --notes-file "support/releases/v${VERSION}.md" --draft=false --latest

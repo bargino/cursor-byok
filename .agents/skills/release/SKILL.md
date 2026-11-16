@@ -9,8 +9,8 @@ Release through `.github/workflows/release.yml`. Preserve both updater formats: 
 
 ## Publication authority
 
-- Only the repository author, GitHub user `leookun`, may authorize a live release.
-- Before any live mutation, require an explicit release instruction from the author in the current task and verify `gh api user --jq .login` returns `leookun`.
+- This fork releases only to `bargino/cursor-byok`. Only its owner, GitHub user `bargino`, may authorize a live release.
+- Before any live mutation, require an explicit release instruction from the owner in the current task and verify the authenticated GitHub account is `bargino`, using the connected GitHub account or `gh api user --jq .login`.
 - Treat all of these as publication actions: pushing a `v*` tag, rerunning the release workflow, and publishing or editing a GitHub Release. Pushing a release commit to `main` only prepares the release and must never trigger publication by itself.
 - Without that authorization, restrict work to inspection, local edits, validation, and a release-ready commit or branch. Do not infer publication permission from requests such as “prepare”, “check”, or “ready to release”.
 - Never print, commit, or upload `.tauri/cursor-byok.key` anywhere except the repository's `TAURI_SIGNING_PRIVATE_KEY` Actions Secret when the author explicitly requests that secret configuration.
@@ -40,13 +40,14 @@ cursor-byok/
 │   └── src-tauri/
 │       ├── Cargo.toml
 │       └── tauri.conf.json
-├── scripts/cursor-proto/proto/
+├── protocols/cursor/
 │   ├── agent_v1.proto
-│   └── aiserver_v1.proto
+│   ├── aiserver_v1.proto
+│   └── aiserver_run_inference_v1.proto
 └── .github/workflows/release.yml
 ```
 
-The two listed Proto files are required build inputs and must be committed. Keep the other locally extracted Proto files ignored unless the build starts depending on them.
+The three listed Proto files are required build inputs and must be committed. Keep the other locally extracted Proto files ignored unless the build starts depending on them.
 
 ## Prepare and validate
 
@@ -64,6 +65,7 @@ The two listed Proto files are required build inputs and must be committed. Keep
 
 7. Validate the workflow YAML and inspect the staged diff. Ensure `.tauri/`, unrelated local files, and unrelated user changes are not staged.
 8. Use the `tauri-action@v1` input `uploadUpdaterJson: true`; `includeUpdaterJson` is not a valid v1 input.
+9. Stable Windows releases include both NSIS and MSI; keep `updaterJsonPreferNsis: true`. Check that the release notes exist at `support/releases/v<version>.md` and that the checksum step covers all uploaded assets before publication.
 
 ## Publish and verify
 

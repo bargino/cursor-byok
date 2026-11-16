@@ -1,6 +1,6 @@
 > **由 [bargino](https://github.com/bargino) 维护的社区 fork。** 基于已于 2026 年 10 月 20 日归档的 [leookun/cursor-byok](https://github.com/leookun/cursor-byok)，保留原 MIT 许可证与贡献历史。
 >
-> 当前发布的是**源码更新**，包含二进制 BidiAppend 传输、RunInference、子代理消息身份和上下文溢出恢复等改动。具体范围、验证结果与限制见[维护与构建说明](support/fork-maintenance.md)。原上游安装包及自动更新不包含这些改动；本 fork 尚未发布安装包。
+> **v1.0.2 安装包：**[下载 Windows、macOS、Linux 版本](https://github.com/bargino/cursor-byok/releases/latest)。本 fork 包含二进制 BidiAppend 传输、RunInference、子代理消息身份和上下文溢出恢复等改动，具体范围与验证结果见[维护说明](support/fork-maintenance.md)。从原上游切换需要手动安装；本 fork 使用独立更新源和签名。
 
 <div align="center">
 
@@ -8,13 +8,13 @@
 
 cursor-byok 是一个运行在本机的 Cursor 模型网关，帮助你在 Cursor 中使用自己配置的模型服务。
 
-[English README](./README.md) · [上游使用指南](https://docs.leokun.cn) · [源码构建](support/fork-maintenance.md#build-from-source) · [提交问题](https://github.com/bargino/cursor-byok/issues)
+[English README](./README.md) · [下载](https://github.com/bargino/cursor-byok/releases/latest) · [上游使用指南](https://docs.leokun.cn) · [源码构建](support/fork-maintenance.md#build-from-source) · [提交问题](https://github.com/bargino/cursor-byok/issues)
 
-[![Upstream Release](https://img.shields.io/github/v/release/leookun/cursor-byok?style=flat-square&label=upstream%20release)](https://github.com/leookun/cursor-byok/releases/latest)
-[![Upstream Downloads](https://img.shields.io/github/downloads/leookun/cursor-byok/total?style=flat-square&label=upstream%20downloads)](https://github.com/leookun/cursor-byok/releases)
+[![Release](https://img.shields.io/github/v/release/bargino/cursor-byok?style=flat-square)](https://github.com/bargino/cursor-byok/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/bargino/cursor-byok/total?style=flat-square)](https://github.com/bargino/cursor-byok/releases)
 [![CI](https://github.com/bargino/cursor-byok/actions/workflows/ci.yml/badge.svg)](https://github.com/bargino/cursor-byok/actions/workflows/ci.yml)
-[![License](https://img.shields.io/github/license/leookun/cursor-byok?style=flat-square)](./LICENSE)
-[![Platforms](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey?style=flat-square)](https://github.com/leookun/cursor-byok/releases/latest)
+[![License](https://img.shields.io/github/license/bargino/cursor-byok?style=flat-square)](./LICENSE)
+[![Platforms](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey?style=flat-square)](https://github.com/bargino/cursor-byok/releases/latest)
 
 </div>
 
@@ -44,9 +44,9 @@ cursor-byok 是一个开源的本地模型网关。它在你的设备上运行�
 
 ## 快速开始
 
-使用本 fork 的改动，请先按[源码构建说明](support/fork-maintenance.md#build-from-source)构建。以下安装步骤来自原上游，其安装包不包含本 fork 的改动。
+从下方下载对应系统的安装包，或按[源码构建说明](support/fork-maintenance.md#build-from-source)构建。从原上游切换前，请完全退出 Cursor 和 Cursor BYOK，并备份 `~/.cursor-byok-v3/` 数据目录。
 
-1. 从 [GitHub Releases](https://github.com/leookun/cursor-byok/releases/latest) 下载适合你操作系统的最新版本。
+1. 从 [GitHub Releases](https://github.com/bargino/cursor-byok/releases/latest) 下载适合你操作系统的最新版本。
 2. 启动 cursor-byok，打开 **Cursor 配置**，按提示初始化本地 CA（证书颁发机构）。
 3. 在模型设置中添加模型，填写服务地址、API Key 和模型名称，然后保存并运行 **测试**。
 4. 确认测试通过后，保持 cursor-byok 运行。
