@@ -129,7 +129,7 @@ jobs:
             args: "--bundles nsis,msi"
             target: ""
           - platform: macos-aarch64
-            os: macos-26
+            os: macos-15-intel
             args: "--target aarch64-apple-darwin --bundles app,dmg"
             target: aarch64-apple-darwin
           - platform: macos-x86_64

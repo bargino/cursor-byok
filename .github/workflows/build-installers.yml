@@ -2,37 +2,56 @@ name: Build desktop installers
 
 on:
   workflow_dispatch:
+    inputs:
+      platform:
+        description: Platform to build
+        type: choice
+        default: all
+        options:
+          - all
+          - linux-x86_64
+          - windows-x86_64
+          - macos-aarch64
+          - macos-x86_64
 
 permissions:
   contents: read
 
 concurrency:
-  group: desktop-installers-${{ github.ref }}
+  group: desktop-installers-${{ github.ref }}-${{ inputs.platform || 'all' }}
   cancel-in-progress: false
 
 jobs:
+  targets:
+    name: Select platforms
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.select.outputs.matrix }}
+    steps:
+      - name: Select requested targets
+        id: select
+        env:
+          REQUESTED_PLATFORM: ${{ inputs.platform || 'all' }}
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const targets = [
+            { platform: 'linux-x86_64', os: 'ubuntu-22.04', args: '--bundles appimage,deb,rpm', target: '' },
+            { platform: 'windows-x86_64', os: 'windows-latest', args: '--bundles nsis,msi', target: '' },
+            { platform: 'macos-aarch64', os: 'macos-15-intel', args: '--target aarch64-apple-darwin --bundles app,dmg', target: 'aarch64-apple-darwin' },
+            { platform: 'macos-x86_64', os: 'macos-15-intel', args: '--target x86_64-apple-darwin --bundles app,dmg', target: 'x86_64-apple-darwin' },
+          ];
+          const include = targets.filter(target => process.env.REQUESTED_PLATFORM === 'all' || target.platform === process.env.REQUESTED_PLATFORM);
+          if (!include.length) throw new Error('Unsupported build platform');
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `matrix=${JSON.stringify({ include })}\n`);
+          NODE
+
   build:
     name: Build (${{ matrix.platform }})
+    needs: targets
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - platform: linux-x86_64
-            os: ubuntu-22.04
-            args: --bundles appimage,deb,rpm
-            target: ""
-          - platform: windows-x86_64
-            os: windows-latest
-            args: --bundles nsis,msi
-            target: ""
-          - platform: macos-aarch64
-            os: macos-26
-            args: --target aarch64-apple-darwin --bundles app,dmg
-            target: aarch64-apple-darwin
-          - platform: macos-x86_64
-            os: macos-15-intel
-            args: --target x86_64-apple-darwin --bundles app,dmg
-            target: x86_64-apple-darwin
+      matrix: ${{ fromJSON(needs.targets.outputs.matrix) }}
     runs-on: ${{ matrix.os }}
     steps:
       - name: Preserve canonical source line endings
