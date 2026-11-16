@@ -1,4 +1,6 @@
-## 👋Is Cursor getting too heavy?  ✨ **New from the same author** → [BaoCode](https://github.com/baocode-dev/baocode) — an awesome desktop GUI for Claude Code: polished, ultra-small, ultra-light.
+> **Community fork by [bargino](https://github.com/bargino).** Based on [leookun/cursor-byok](https://github.com/leookun/cursor-byok), archived on October 20, 2026. The original MIT license and contributor history are preserved.
+>
+> This fork currently publishes **source updates** for binary BidiAppend transport, RunInference, subagent message identity, and context-overflow recovery. See the [maintenance and build notes](support/fork-maintenance.md) for scope, validation, and known limitations. Upstream installers and automatic updates do not contain these changes; this fork has no installer release yet.
 
 <div align="center">
 
@@ -6,12 +8,11 @@
 cursor-byok is a local implementation of Cursor's backend.
 <br>
 <br>
-<a href="https://trendshift.io/repositories/39260?utm_source=repository-badge&amp;utm_medium=badge&amp;utm_campaign=badge-repository-39260" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/repositories/39260" alt="leookun/cursor-byok | Trendshift" width="250" height="55" /></a>
+[Upstream User Guide](https://docs.leokun.cn) · [Build This Fork](support/fork-maintenance.md#build-from-source) · [Report an Issue](https://github.com/bargino/cursor-byok/issues) · [中文版本说明](./README-CN.md)
 
-[User Guide](https://docs.leokun.cn) · [Download](https://github.com/leookun/cursor-byok/releases/latest) · [Report an Issue](https://github.com/leookun/cursor-byok/issues) · [中文版本说明](./README-CN.md)
-
-[![Release](https://img.shields.io/github/v/release/leookun/cursor-byok?style=flat-square)](https://github.com/leookun/cursor-byok/releases/latest)
-[![Downloads](https://img.shields.io/github/downloads/leookun/cursor-byok/total?style=flat-square)](https://github.com/leookun/cursor-byok/releases)
+[![Upstream Release](https://img.shields.io/github/v/release/leookun/cursor-byok?style=flat-square&label=upstream%20release)](https://github.com/leookun/cursor-byok/releases/latest)
+[![Upstream Downloads](https://img.shields.io/github/downloads/leookun/cursor-byok/total?style=flat-square&label=upstream%20downloads)](https://github.com/leookun/cursor-byok/releases)
+[![CI](https://github.com/bargino/cursor-byok/actions/workflows/ci.yml/badge.svg)](https://github.com/bargino/cursor-byok/actions/workflows/ci.yml)
 [![License](https://img.shields.io/github/license/leookun/cursor-byok?style=flat-square)](./LICENSE)
 [![Platforms](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey?style=flat-square)](https://github.com/leookun/cursor-byok/releases/latest)
 
@@ -43,6 +44,8 @@ You can connect OpenAI- and Anthropic-compatible services, customize endpoints, 
 - **Cross-platform:** Run on macOS, Windows, and Linux.
 
 ## Quick Start
+
+To use this fork's changes, follow [Build from source](support/fork-maintenance.md#build-from-source). The following instructions describe the original upstream installation, whose binaries do not include this fork's changes.
 
 1. Download the latest build for your platform from [GitHub Releases](https://github.com/leookun/cursor-byok/releases/latest).
 2. Launch cursor-byok, open **Model Settings**, and enter the endpoint, API key, and model ID.
@@ -82,14 +85,15 @@ cursor-byok is built to return model choice to the user. Developers can make ful
 
 ## Roadmap
 
-The project will continue to improve model compatibility, Agent tooling, local runtime stability, and the self-hosting experience while exploring support for more IDE, chat, and Agent workflows.
+This fork focuses on Cursor protocol compatibility, reliable subagent execution, and reproducible regression tests. Current scope and validation limits are recorded in the [maintenance notes](support/fork-maintenance.md).
 
-See the [release roadmap](https://github.com/leookun/cursor-byok/discussions/32) for plans and progress.
+The original [upstream roadmap](https://github.com/leookun/cursor-byok/discussions/32) remains available as historical context.
 
 ## Community and Support
 
 - [User Guide](https://docs.leokun.cn)
-- [GitHub Issues](https://github.com/leookun/cursor-byok/issues)
+- [Fork Issues](https://github.com/bargino/cursor-byok/issues)
+- [Upstream Issues (archived)](https://github.com/leookun/cursor-byok/issues)
 - [Telegram community](https://t.me/cursor_byok)
 - QQ groups: `1095916242`, `1094411438`, `1095918002`, `1094419321`
 
@@ -97,7 +101,7 @@ See the [release roadmap](https://github.com/leookun/cursor-byok/discussions/32)
 
 ## Development and Contributing
 
-Issues and pull requests are welcome. See the [Contributing Guide](./CONTRIBUTING_EN.md) for prerequisites, build commands, project structure, and contribution guidelines.
+Issues and pull requests are welcome. See the [maintenance and build notes](support/fork-maintenance.md) for build commands and validation scope.
 
 ## Contributors
 

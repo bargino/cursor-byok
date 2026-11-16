@@ -1,4 +1,6 @@
-## 👋 受够了Cursor的性能？ ✨ **同作者新作** → [Baocode](https://github.com/baocode-dev/baocode) —— 为 Claude Code 打造的精致的桌面 GUI，超小尺寸，超低占用
+> **由 [bargino](https://github.com/bargino) 维护的社区 fork。** 基于已于 2026 年 10 月 20 日归档的 [leookun/cursor-byok](https://github.com/leookun/cursor-byok)，保留原 MIT 许可证与贡献历史。
+>
+> 当前发布的是**源码更新**，包含二进制 BidiAppend 传输、RunInference、子代理消息身份和上下文溢出恢复等改动。具体范围、验证结果与限制见[维护与构建说明](support/fork-maintenance.md)。原上游安装包及自动更新不包含这些改动；本 fork 尚未发布安装包。
 
 <div align="center">
 
@@ -6,10 +8,11 @@
 
 cursor-byok 是一个运行在本机的 Cursor 模型网关，帮助你在 Cursor 中使用自己配置的模型服务。
 
-[English README](./README.md) · [使用指南](https://docs.leokun.cn) · [下载](https://github.com/leookun/cursor-byok/releases/latest) · [提交问题](https://github.com/leookun/cursor-byok/issues)
+[English README](./README.md) · [上游使用指南](https://docs.leokun.cn) · [源码构建](support/fork-maintenance.md#build-from-source) · [提交问题](https://github.com/bargino/cursor-byok/issues)
 
-[![Release](https://img.shields.io/github/v/release/leookun/cursor-byok?style=flat-square)](https://github.com/leookun/cursor-byok/releases/latest)
-[![Downloads](https://img.shields.io/github/downloads/leookun/cursor-byok/total?style=flat-square)](https://github.com/leookun/cursor-byok/releases)
+[![Upstream Release](https://img.shields.io/github/v/release/leookun/cursor-byok?style=flat-square&label=upstream%20release)](https://github.com/leookun/cursor-byok/releases/latest)
+[![Upstream Downloads](https://img.shields.io/github/downloads/leookun/cursor-byok/total?style=flat-square&label=upstream%20downloads)](https://github.com/leookun/cursor-byok/releases)
+[![CI](https://github.com/bargino/cursor-byok/actions/workflows/ci.yml/badge.svg)](https://github.com/bargino/cursor-byok/actions/workflows/ci.yml)
 [![License](https://img.shields.io/github/license/leookun/cursor-byok?style=flat-square)](./LICENSE)
 [![Platforms](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey?style=flat-square)](https://github.com/leookun/cursor-byok/releases/latest)
 
@@ -40,6 +43,8 @@ cursor-byok 是一个开源的本地模型网关。它在你的设备上运行�
 - **跨平台运行**：支持 macOS、Windows 和 Linux。
 
 ## 快速开始
+
+使用本 fork 的改动，请先按[源码构建说明](support/fork-maintenance.md#build-from-source)构建。以下安装步骤来自原上游，其安装包不包含本 fork 的改动。
 
 1. 从 [GitHub Releases](https://github.com/leookun/cursor-byok/releases/latest) 下载适合你操作系统的最新版本。
 2. 启动 cursor-byok，打开 **Cursor 配置**，按提示初始化本地 CA（证书颁发机构）。
@@ -203,14 +208,15 @@ make build-docker    # 构建 Docker 镜像
 
 ## 路线图
 
-项目将继续改进模型兼容性、Agent 工具、本地运行稳定性和自托管体验，并探索支持更多 IDE、聊天和 Agent 工作流。
+本 fork 优先处理 Cursor 协议兼容、子代理执行与回归验证。当前范围及验证边界记录在[维护说明](support/fork-maintenance.md)中。
 
-计划与进展请参阅[发布路线图](https://github.com/leookun/cursor-byok/discussions/32)。
+原[上游发布路线图](https://github.com/leookun/cursor-byok/discussions/32)保留作历史参考。
 
 ## 社区与反馈
 
 - [中文使用指南](https://docs.leokun.cn/zh/docs)
-- [GitHub Issues](https://github.com/leookun/cursor-byok/issues)
+- [本 fork 的 GitHub Issues](https://github.com/bargino/cursor-byok/issues)
+- [原上游 Issues（已归档）](https://github.com/leookun/cursor-byok/issues)
 - [Telegram 社区](https://t.me/cursor_byok)
 - QQ 群：`1095916242`、`1094411438`、`1095918002`、`1094419321`
 
