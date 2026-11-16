@@ -26,6 +26,7 @@ jobs:
       should_publish: ${{ steps.release.outputs.should_publish }}
       version: ${{ steps.version.outputs.version }}
       tag: ${{ steps.version.outputs.tag }}
+      release_id: ${{ steps.draft.outputs.release_id }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -89,6 +90,25 @@ jobs:
             echo "should_publish=true" >> "${GITHUB_OUTPUT}"
           fi
 
+      - name: Prepare draft and verify release upload permission
+        if: steps.release.outputs.should_publish == 'true'
+        id: draft
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.version.outputs.version }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        shell: bash
+        run: |
+          if ! gh release view "v${VERSION}" --json isDraft > /dev/null 2>&1; then
+            gh release create "v${VERSION}" --verify-tag --target "${DEFAULT_BRANCH}" \
+              --title "Cursor BYOK v${VERSION}" \
+              --notes-file "support/releases/v${VERSION}.md" --draft
+          fi
+          gh release upload "v${VERSION}" LICENSE --clobber
+          release_id=$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/v${VERSION}" --jq .id)
+          test -n "${release_id}"
+          echo "release_id=${release_id}" >> "${GITHUB_OUTPUT}"
+
   publish:
     name: Publish (${{ matrix.platform }})
     needs: prepare
@@ -136,6 +156,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: ". -> target"
+          cache-on-failure: true
 
       - uses: actions/setup-node@v4
         with:
@@ -155,6 +176,7 @@ jobs:
           APPLE_SIGNING_IDENTITY: ${{ contains(matrix.platform, 'macos') && '-' || '' }}
         with:
           projectPath: apps/desktop
+          releaseId: ${{ needs.prepare.outputs.release_id }}
           tagName: v__VERSION__
           releaseCommitish: ${{ github.event.repository.default_branch }}
           releaseName: Cursor BYOK v__VERSION__
@@ -165,6 +187,26 @@ jobs:
           uploadUpdaterSignatures: true
           updaterJsonPreferNsis: true
           args: ${{ matrix.args }}
+
+      - name: Preserve built packages if release upload fails
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-packages-${{ matrix.platform }}-attempt-${{ github.run_attempt }}
+          if-no-files-found: ignore
+          retention-days: 7
+          compression-level: 0
+          path: |
+            target/**/release/bundle/**/*.AppImage
+            target/**/release/bundle/**/*.deb
+            target/**/release/bundle/**/*.rpm
+            target/**/release/bundle/**/*.exe
+            target/**/release/bundle/**/*.msi
+            target/**/release/bundle/**/*.dmg
+            target/**/release/bundle/**/*.tar.gz
+            target/**/release/bundle/**/*.sig
+            target/release/cursor-byok-desktop
+            target/release/cursor-byok-desktop.exe
 
       - name: Package legacy Linux updater asset
         if: matrix.platform == 'linux-x86_64'
