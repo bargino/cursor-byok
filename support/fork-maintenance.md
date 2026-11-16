@@ -54,6 +54,8 @@ Local validation on Windows for the 2026-11-16 source publication:
 
 The source snapshot was checked out with LF line endings so embedded prompt fixtures retain their canonical bytes. The frontend package manifests and lockfile are unchanged from upstream. This publication did not repeat live Cursor/provider acceptance tests or build a signed installer. Cross-platform CI results are available in [Actions](https://github.com/bargino/cursor-byok/actions).
 
+CI runs on pushes to `main`, pull requests, and manual runs from the Actions page. The desktop release workflow remains triggered only by version tags.
+
 ## Known limitations
 
 - Automated protocol tests use synthetic requests and fake providers. They do not establish compatibility with every Cursor version, provider, or tool.
