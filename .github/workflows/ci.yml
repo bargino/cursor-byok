@@ -59,7 +59,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: apps/desktop
-        run: npm ci
+        run: npm exec --yes --registry=https://registry.npmjs.org --package=npm@10.9.9 -- npm ci
 
       - name: Check types and production build
         working-directory: apps/desktop

@@ -1,6 +1,6 @@
 > **Community fork by [bargino](https://github.com/bargino).** Based on [leookun/cursor-byok](https://github.com/leookun/cursor-byok), archived on October 20, 2026. The original MIT license and contributor history are preserved.
 >
-> **v1.0.2 packages:** [Download for Windows, macOS, and Linux](https://github.com/bargino/cursor-byok/releases/latest). This fork includes binary BidiAppend transport, RunInference, subagent message identity, and context-overflow recovery. See the [maintenance and build notes](support/fork-maintenance.md) for validation and known limitations. Switching from upstream requires a manual installation; this fork uses its own update feed and signing key.
+> **v1.0.3 packages:** [Download for Windows, macOS, and Linux](https://github.com/bargino/cursor-byok/releases/latest). This fork includes binary BidiAppend transport, RunInference, subagent message identity, and context-overflow recovery. See the [maintenance and build notes](support/fork-maintenance.md) for validation and known limitations. Switching from upstream requires a manual installation; this fork uses its own update feed and signing key.
 
 <div align="center">
 

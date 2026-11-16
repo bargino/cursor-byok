@@ -1,6 +1,6 @@
 > **由 [bargino](https://github.com/bargino) 维护的社区 fork。** 基于已于 2026 年 10 月 20 日归档的 [leookun/cursor-byok](https://github.com/leookun/cursor-byok)，保留原 MIT 许可证与贡献历史。
 >
-> **v1.0.2 安装包：**[下载 Windows、macOS、Linux 版本](https://github.com/bargino/cursor-byok/releases/latest)。本 fork 包含二进制 BidiAppend 传输、RunInference、子代理消息身份和上下文溢出恢复等改动，具体范围与验证结果见[维护说明](support/fork-maintenance.md)。从原上游切换需要手动安装；本 fork 使用独立更新源和签名。
+> **v1.0.3 安装包：**[下载 Windows、macOS、Linux 版本](https://github.com/bargino/cursor-byok/releases/latest)。本 fork 包含二进制 BidiAppend 传输、RunInference、子代理消息身份和上下文溢出恢复等改动，具体范围与验证结果见[维护说明](support/fork-maintenance.md)。从原上游切换需要手动安装；本 fork 使用独立更新源和签名。
 
 <div align="center">
 
