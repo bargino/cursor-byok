@@ -1,0 +1,15 @@
+{
+  "apiVersion": 1,
+  "id": "dev.cursorbyok.teleagent-auth",
+  "name": "TeleAgent",
+  "version": "0.1.0",
+  "author": "Cursor BYOK contributors",
+  "minAppVersion": "1.0.4",
+  "icon": "assets/teleagent.ico",
+  "entry": "main.ts",
+  "permissions": {
+    "network": [
+      "agent.teleai.com.cn"
+    ]
+  }
+}

@@ -51,24 +51,32 @@ impl PluginDataStore {
         }
     }
 
-    pub async fn update(
+    /// Hold the plugin lock across the complete read/modify/write transaction.
+    /// Locking read and update separately loses concurrent account additions.
+    pub async fn modify<T>(
         &self,
         plugin_id: &str,
         key: &str,
-        value: &serde_json::Value,
-    ) -> Result<()> {
+        change: impl FnOnce(serde_json::Value) -> Result<(serde_json::Value, T)>,
+    ) -> Result<T> {
         let path = self.path(plugin_id, key)?;
         let lock = self.lock(plugin_id);
         let _guard = lock.lock().await;
-        self.write_locked(&path, key, value)
+        let previous = match tokio::fs::read(&path).await {
+            Ok(bytes) => serde_json::from_slice(&bytes)?,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => serde_json::Value::Null,
+            Err(error) => return Err(error.into()),
+        };
+        let (value, result) = change(previous)?;
+        self.write_locked(&path, key, &value)
             .await
-            // 带上具体路径,Windows 上的拒绝访问才能定位到是哪一步。
             .map_err(|error| {
                 Error::Config(format!(
                     "plugin data write failed at {}: {error}",
                     path.display()
                 ))
-            })
+            })?;
+        Ok(result)
     }
 
     /// 全程使用同步 IO 在阻塞线程完成:tokio 异步文件的关闭是延迟的,
@@ -237,11 +245,9 @@ mod tests {
         let root = tempfile::tempdir().unwrap();
         let store = PluginDataStore::new(root.path().join("data")).unwrap();
         store
-            .update(
-                "com.example",
-                "state",
-                &serde_json::json!({"token":"secret"}),
-            )
+            .modify("com.example", "state", |_| {
+                Ok((serde_json::json!({"token":"secret"}), ()))
+            })
             .await
             .unwrap();
         assert_eq!(

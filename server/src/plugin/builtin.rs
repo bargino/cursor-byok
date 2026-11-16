@@ -1,177 +1,481 @@
 //! Pre-installs bundled built-in plugins into the user's installed directory.
 use std::path::Path;
 
-use super::definition::write_if_changed;
 use crate::Result;
 
+type PluginFiles = &'static [(&'static str, &'static [u8])];
+
 /// 随二进制打包的内置插件文件;发布构建没有源码目录,靠这里预装。
-const CODEX_AUTH: &[(&str, &str)] = &[
+const CODEX_AUTH: PluginFiles = &[
     (
         "plugin.json",
-        include_str!(concat!(
+        include_bytes!(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/plugins/build-in/codex-auth/plugin.json"
         )),
     ),
     (
         "main.ts",
-        include_str!(concat!(
+        include_bytes!(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/plugins/build-in/codex-auth/main.ts"
         )),
     ),
     (
         "provider.ts",
-        include_str!(concat!(
+        include_bytes!(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/plugins/build-in/codex-auth/provider.ts"
         )),
     ),
     (
         "models.ts",
-        include_str!(concat!(
+        include_bytes!(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/plugins/build-in/codex-auth/models.ts"
         )),
     ),
     (
         "oauth.ts",
-        include_str!(concat!(
+        include_bytes!(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/plugins/build-in/codex-auth/oauth.ts"
         )),
     ),
     (
         "resources.ts",
-        include_str!(concat!(
+        include_bytes!(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/plugins/build-in/codex-auth/resources.ts"
         )),
     ),
     (
         "assets/codex.svg",
-        include_str!(concat!(
+        include_bytes!(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/plugins/build-in/codex-auth/assets/codex.svg"
         )),
     ),
 ];
 
-const GROK_AUTH: &[(&str, &str)] = &[
+const GROK_AUTH: PluginFiles = &[
     (
         "plugin.json",
-        include_str!(concat!(
+        include_bytes!(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/plugins/build-in/grok-auth/plugin.json"
         )),
     ),
     (
         "main.ts",
-        include_str!(concat!(
+        include_bytes!(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/plugins/build-in/grok-auth/main.ts"
         )),
     ),
     (
         "provider.ts",
-        include_str!(concat!(
+        include_bytes!(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/plugins/build-in/grok-auth/provider.ts"
         )),
     ),
     (
         "models.ts",
-        include_str!(concat!(
+        include_bytes!(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/plugins/build-in/grok-auth/models.ts"
         )),
     ),
     (
         "oauth.ts",
-        include_str!(concat!(
+        include_bytes!(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/plugins/build-in/grok-auth/oauth.ts"
         )),
     ),
     (
         "resources.ts",
-        include_str!(concat!(
+        include_bytes!(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/plugins/build-in/grok-auth/resources.ts"
         )),
     ),
     (
         "assets/grok.svg",
-        include_str!(concat!(
+        include_bytes!(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/plugins/build-in/grok-auth/assets/grok.svg"
         )),
     ),
 ];
 
-const ANTIGRAVITY_AUTH: &[(&str, &str)] = &[
+const ANTIGRAVITY_AUTH: PluginFiles = &[
     (
         "plugin.json",
-        include_str!(concat!(
+        include_bytes!(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/plugins/build-in/antigravity-auth/plugin.json"
         )),
     ),
     (
         "main.ts",
-        include_str!(concat!(
+        include_bytes!(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/plugins/build-in/antigravity-auth/main.ts"
         )),
     ),
     (
         "provider.ts",
-        include_str!(concat!(
+        include_bytes!(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/plugins/build-in/antigravity-auth/provider.ts"
         )),
     ),
     (
         "models.ts",
-        include_str!(concat!(
+        include_bytes!(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/plugins/build-in/antigravity-auth/models.ts"
         )),
     ),
     (
         "oauth.ts",
-        include_str!(concat!(
+        include_bytes!(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/plugins/build-in/antigravity-auth/oauth.ts"
         )),
     ),
     (
         "google_oauth.ts",
-        include_str!(concat!(
+        include_bytes!(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/plugins/build-in/antigravity-auth/google_oauth.ts"
         )),
     ),
     (
         "resources.ts",
-        include_str!(concat!(
+        include_bytes!(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/plugins/build-in/antigravity-auth/resources.ts"
         )),
     ),
     (
         "assets/antigravity.svg",
-        include_str!(concat!(
+        include_bytes!(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/plugins/build-in/antigravity-auth/assets/antigravity.svg"
         )),
     ),
 ];
 
-const PLUGINS: &[(&str, &[(&str, &str)])] = &[
+const WORKBUDDY_AUTH: PluginFiles = &[
+    (
+        "plugin.json",
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/plugins/build-in/workbuddy-auth/plugin.json"
+        )),
+    ),
+    (
+        "main.ts",
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/plugins/build-in/workbuddy-auth/main.ts"
+        )),
+    ),
+    (
+        "api.ts",
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/plugins/build-in/workbuddy-auth/api.ts"
+        )),
+    ),
+    (
+        "oauth.ts",
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/plugins/build-in/workbuddy-auth/oauth.ts"
+        )),
+    ),
+    (
+        "resources.ts",
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/plugins/build-in/workbuddy-auth/resources.ts"
+        )),
+    ),
+    (
+        "models.ts",
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/plugins/build-in/workbuddy-auth/models.ts"
+        )),
+    ),
+    (
+        "provider.ts",
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/plugins/build-in/workbuddy-auth/provider.ts"
+        )),
+    ),
+    (
+        "assets/workbuddy.svg",
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/plugins/build-in/workbuddy-auth/assets/workbuddy.svg"
+        )),
+    ),
+    (
+        "LICENSE",
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/plugins/build-in/workbuddy-auth/LICENSE"
+        )),
+    ),
+];
+
+const QODER_AUTH: PluginFiles = &[
+    (
+        "LICENSE",
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/plugins/build-in/qoder-auth/LICENSE"
+        )),
+    ),
+    (
+        "LICENSE.qoder",
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/plugins/build-in/qoder-auth/LICENSE.qoder"
+        )),
+    ),
+    (
+        "NOTICE",
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/plugins/build-in/qoder-auth/NOTICE"
+        )),
+    ),
+    (
+        "api.ts",
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/plugins/build-in/qoder-auth/api.ts"
+        )),
+    ),
+    (
+        "assets/qoder.svg",
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/plugins/build-in/qoder-auth/assets/qoder.svg"
+        )),
+    ),
+    (
+        "assets/source.json",
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/plugins/build-in/qoder-auth/assets/source.json"
+        )),
+    ),
+    (
+        "main.ts",
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/plugins/build-in/qoder-auth/main.ts"
+        )),
+    ),
+    (
+        "oauth.ts",
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/plugins/build-in/qoder-auth/oauth.ts"
+        )),
+    ),
+    (
+        "plugin.json",
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/plugins/build-in/qoder-auth/plugin.json"
+        )),
+    ),
+    (
+        "provider.ts",
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/plugins/build-in/qoder-auth/provider.ts"
+        )),
+    ),
+    (
+        "sign.ts",
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/plugins/build-in/qoder-auth/sign.ts"
+        )),
+    ),
+];
+
+const KIRO_AUTH: PluginFiles = &[
+    (
+        "LICENSE",
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/plugins/build-in/kiro-auth/LICENSE"
+        )),
+    ),
+    (
+        "LICENSE.kiro",
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/plugins/build-in/kiro-auth/LICENSE.kiro"
+        )),
+    ),
+    (
+        "NOTICE",
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/plugins/build-in/kiro-auth/NOTICE"
+        )),
+    ),
+    (
+        "api.ts",
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/plugins/build-in/kiro-auth/api.ts"
+        )),
+    ),
+    (
+        "assets/kiro.svg",
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/plugins/build-in/kiro-auth/assets/kiro.svg"
+        )),
+    ),
+    (
+        "assets/source.json",
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/plugins/build-in/kiro-auth/assets/source.json"
+        )),
+    ),
+    (
+        "eventstream.ts",
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/plugins/build-in/kiro-auth/eventstream.ts"
+        )),
+    ),
+    (
+        "main.ts",
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/plugins/build-in/kiro-auth/main.ts"
+        )),
+    ),
+    (
+        "oauth.ts",
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/plugins/build-in/kiro-auth/oauth.ts"
+        )),
+    ),
+    (
+        "plugin.json",
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/plugins/build-in/kiro-auth/plugin.json"
+        )),
+    ),
+    (
+        "provider.ts",
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/plugins/build-in/kiro-auth/provider.ts"
+        )),
+    ),
+];
+
+const TELEAGENT_AUTH: PluginFiles = &[
+    (
+        "LICENSE",
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/plugins/build-in/teleagent-auth/LICENSE"
+        )),
+    ),
+    (
+        "LICENSE.teleagent",
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/plugins/build-in/teleagent-auth/LICENSE.teleagent"
+        )),
+    ),
+    (
+        "NOTICE",
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/plugins/build-in/teleagent-auth/NOTICE"
+        )),
+    ),
+    (
+        "api.ts",
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/plugins/build-in/teleagent-auth/api.ts"
+        )),
+    ),
+    (
+        "assets/source.json",
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/plugins/build-in/teleagent-auth/assets/source.json"
+        )),
+    ),
+    (
+        "assets/teleagent.ico",
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/plugins/build-in/teleagent-auth/assets/teleagent.ico"
+        )),
+    ),
+    (
+        "main.ts",
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/plugins/build-in/teleagent-auth/main.ts"
+        )),
+    ),
+    (
+        "oauth.ts",
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/plugins/build-in/teleagent-auth/oauth.ts"
+        )),
+    ),
+    (
+        "plugin.json",
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/plugins/build-in/teleagent-auth/plugin.json"
+        )),
+    ),
+    (
+        "provider.ts",
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/plugins/build-in/teleagent-auth/provider.ts"
+        )),
+    ),
+];
+
+const PLUGINS: &[(&str, PluginFiles)] = &[
     ("codex-auth", CODEX_AUTH),
     ("grok-auth", GROK_AUTH),
     ("antigravity-auth", ANTIGRAVITY_AUTH),
+    ("workbuddy-auth", WORKBUDDY_AUTH),
+    ("qoder-auth", QODER_AUTH),
+    ("kiro-auth", KIRO_AUTH),
+    ("teleagent-auth", TELEAGENT_AUTH),
 ];
 
 /// 把内置插件预装到 installed 目录。manifest 的 version 是缓存键:
@@ -187,13 +491,13 @@ pub(super) fn install(installed: &Path) -> Result<()> {
     Ok(())
 }
 
-fn embedded_version(files: &[(&str, &str)]) -> Result<String> {
+fn embedded_version(files: &[(&str, &[u8])]) -> Result<String> {
     let manifest = files
         .iter()
         .find(|(name, _)| *name == "plugin.json")
         .map(|(_, content)| *content)
         .expect("built-in plugin bundles plugin.json");
-    let value: serde_json::Value = serde_json::from_str(manifest)?;
+    let value: serde_json::Value = serde_json::from_slice(manifest)?;
     value
         .get("version")
         .and_then(serde_json::Value::as_str)
@@ -207,7 +511,7 @@ fn disk_version(directory: &Path) -> Option<String> {
     Some(value.get("version")?.as_str()?.to_owned())
 }
 
-fn write_plugin(directory: &Path, files: &[(&str, &str)]) -> Result<()> {
+fn write_plugin(directory: &Path, files: &[(&str, &[u8])]) -> Result<()> {
     for (relative, content) in files {
         let path = directory.join(relative);
         let parent = path.parent().expect("plugin file path has a parent");
@@ -217,7 +521,9 @@ fn write_plugin(directory: &Path, files: &[(&str, &str)]) -> Result<()> {
             use std::os::unix::fs::PermissionsExt;
             std::fs::set_permissions(parent, std::fs::Permissions::from_mode(0o700))?;
         }
-        write_if_changed(&path, content)?;
+        if std::fs::read(&path).ok().as_deref() != Some(*content) {
+            std::fs::write(&path, content)?;
+        }
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
@@ -229,7 +535,7 @@ fn write_plugin(directory: &Path, files: &[(&str, &str)]) -> Result<()> {
 }
 
 /// 删除插件目录中不在嵌入清单里的文件与空目录(旧版本残留)。
-fn prune_unknown_files(root: &Path, directory: &Path, files: &[(&str, &str)]) -> Result<()> {
+fn prune_unknown_files(root: &Path, directory: &Path, files: &[(&str, &[u8])]) -> Result<()> {
     for entry in std::fs::read_dir(directory)? {
         let entry = entry?;
         let path = entry.path();
@@ -255,11 +561,12 @@ mod tests {
     use super::*;
 
     fn embedded_main() -> &'static str {
-        CODEX_AUTH
+        let content = CODEX_AUTH
             .iter()
             .find(|(name, _)| *name == "main.ts")
             .unwrap()
-            .1
+            .1;
+        std::str::from_utf8(content).unwrap()
     }
 
     #[test]
@@ -276,6 +583,9 @@ mod tests {
             .path()
             .join("antigravity-auth/assets/antigravity.svg")
             .is_file());
+
+        assert!(root.path().join("workbuddy-auth/api.ts").is_file());
+        assert!(root.path().join("workbuddy-auth/LICENSE").is_file());
 
         // 版本一致:本地改动与额外文件保持原样,不发生任何写盘。
         std::fs::write(plugin.join("main.ts"), "edited").unwrap();

@@ -102,9 +102,12 @@ export type OAuth2AddMethod = {
   description?: LocalizedText;
   begin(context: PluginContext): Promise<OAuth2Begin>;
   poll(session: JsonValue, context: PluginContext): Promise<OAuth2Poll>;
+  cancel?(session: JsonValue, context: PluginContext): Promise<void>;
 };
 
 export type OAuth2Begin = {
+  /** A host-owned native login has already opened its own isolated browser. */
+  browserOpened?: boolean;
   /** 不透明流程状态(如设备码);永远不会持久化。 */
   session: JsonValue;
   userCode: string;

@@ -34,6 +34,20 @@ pub(crate) struct PluginEntry {
 }
 
 impl PluginCatalog {
+    #[cfg(test)]
+    pub(super) fn for_test(root: &Path) -> Result<Self> {
+        let desktop: serde_json::Value =
+            serde_json::from_str(include_str!("../../../apps/desktop/package.json"))?;
+        Ok(Self {
+            roots: vec![root.join("installed")],
+            definition_loader: PluginDefinitionLoader::for_test(root)?,
+            app_version: desktop["version"]
+                .as_str()
+                .expect("desktop package version")
+                .into(),
+        })
+    }
+
     pub fn managed(app_version: String) -> Result<Self> {
         let installed = config::managed_data_dir()?.join("plugins/installed");
         fs::create_dir_all(&installed)?;
@@ -319,6 +333,7 @@ fn icon_data_url(directory: &Path, relative: &str) -> Result<String> {
         "svg" => "image/svg+xml",
         "png" => "image/png",
         "webp" => "image/webp",
+        "ico" => "image/x-icon",
         _ => {
             return Err(Error::Config(format!(
                 "unsupported plugin icon: {relative}"

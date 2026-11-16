@@ -187,6 +187,10 @@ impl ControlService {
             .await
     }
 
+    pub async fn plugin_oauth_cancel(&self, session_id: &str) -> Result<()> {
+        self.plugins.oauth_cancel(session_id).await
+    }
+
     pub async fn plugin_oauth_poll(
         &self,
         session_id: &str,

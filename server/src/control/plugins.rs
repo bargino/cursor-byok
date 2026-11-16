@@ -45,6 +45,14 @@ pub async fn oauth_poll(
     Ok(Json(service.plugin_oauth_poll(&session_id).await?))
 }
 
+pub async fn oauth_cancel(
+    State(service): State<ControlService>,
+    Path(session_id): Path<String>,
+) -> Result<StatusCode> {
+    service.plugin_oauth_cancel(&session_id).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
 pub async fn import(
     State(service): State<ControlService>,
     Path((plugin_id, resource_type)): Path<(String, String)>,

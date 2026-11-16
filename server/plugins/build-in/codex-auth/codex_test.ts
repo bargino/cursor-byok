@@ -526,3 +526,11 @@ Deno.test("invoke maps quota failures to a cooling resource error", async () => 
     "cooling should carry the parsed reset time",
   );
 });
+
+Deno.test("different ChatGPT accounts coexist and token renewal preserves account identity", async () => {
+  const first = await accountIdentity(jwt({ "https://api.openai.com/auth": { chatgpt_account_id: "one" }, email: "Shared label" }));
+  const second = await accountIdentity(jwt({ "https://api.openai.com/auth": { chatgpt_account_id: "two" }, email: "Shared label" }));
+  assert(first.key !== second.key);
+  const renewed = await accountIdentity(jwt({ "https://api.openai.com/auth": { chatgpt_account_id: "one" }, exp: 1900000000 }));
+  assertEquals(first.key, renewed.key);
+});

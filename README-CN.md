@@ -35,6 +35,7 @@ cursor-byok 是一个开源的本地模型网关。它在你的设备上运行�
 
 - **自定义模型通道**：配置自己的 API 地址、凭据和模型 ID。
 - **多种 API 协议**：支持 OpenAI Responses API、OpenAI Chat Completions API 和 Anthropic Messages API 兼容服务。
+- **账号插件与账号池**：新增 WorkBuddy、Qoder 国内/国际、TeleAgent 和 Kiro，支持多账号保存、轮转、凭据导入和积分查询。各平台登录条件与使用说明见 [1.0.4 说明](support/releases/v1.0.4.md)。
 - **模型管理**：添加、复制、编辑、排序模型配置，并批量测试连接。
 - **连接性能测试**：查看首字延迟、生成速度、总耗时和原始服务商响应。
 - **Agent 工作流**：继续使用工具调用、Skills、MCP 和多轮对话。

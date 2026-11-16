@@ -377,3 +377,11 @@ Deno.test("invoke maps quota failures to a cooling resource error", async () => 
   assert(result.status === "resource-error", `expected resource-error, received ${result.status}`);
   assert(result.patch.state?.status === "cooling", "quota failure should cool the resource");
 });
+
+Deno.test("different Grok subjects coexist and renewed tokens retain the same identity", async () => {
+  const first = await accountIdentity(jwt({ sub: "one", name: "Shared name" }));
+  const second = await accountIdentity(jwt({ sub: "two", name: "Shared name" }));
+  assert(first.key !== second.key);
+  const renewed = await accountIdentity(jwt({ sub: "one", exp: 1900000000 }));
+  assertEquals(first.key, renewed.key);
+});

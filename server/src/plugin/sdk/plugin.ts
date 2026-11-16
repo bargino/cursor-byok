@@ -15,6 +15,8 @@ export type NetworkRequestInit = {
   method?: string;
   headers?: Record<string, string>;
   body?: string;
+  /** stream only: deliver raw byte chunks as base64 strings instead of UTF-8 lines. */
+  responseEncoding?: "base64";
 };
 
 export type NetworkResponse = {
@@ -35,6 +37,12 @@ export type NetworkEventStream = {
  * 宿主取消本次调用时通过 `signal` 中止。
  */
 export type PluginContext = {
+  /** Built-in TeleAgent only: host-owned login in a new isolated browser window. */
+  desktop?: {
+    beginTeleAgentLogin(): Promise<{ id: string; expiresAtMs: number }>;
+    pollTeleAgentLogin(id: string): Promise<JsonValue>;
+    cancelTeleAgentLogin(id: string): Promise<void>;
+  };
   network: {
     fetch(url: string, init?: NetworkRequestInit): Promise<NetworkResponse>;
     stream(url: string, init?: NetworkRequestInit): Promise<NetworkEventStream>;

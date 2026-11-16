@@ -44,6 +44,11 @@ async function* streamLines(requestId: string, streamId: string): AsyncGenerator
 
 function contextFor(requestId: string, signal: AbortSignal): PluginContext {
   return {
+    desktop: {
+      beginTeleAgentLogin: () => hostCall(requestId, "desktop.teleagent.begin", {}) as ReturnType<NonNullable<PluginContext["desktop"]>["beginTeleAgentLogin"]>,
+      pollTeleAgentLogin: (id) => hostCall(requestId, "desktop.teleagent.poll", { id }) as Promise<JsonValue>,
+      cancelTeleAgentLogin: async (id) => { await hostCall(requestId, "desktop.teleagent.cancel", { id }); },
+    },
     network: {
       fetch: (url, init = {}) => hostCall(requestId, "network.fetch", { url, ...init }) as ReturnType<PluginContext["network"]["fetch"]>,
       stream: async (url, init = {}): Promise<NetworkEventStream> => {
@@ -150,6 +155,12 @@ async function dispatch(message: { id: string; method: string; params?: JsonValu
         const method = addMethod(support, params.methodId);
         if (method.type !== "oauth2.0") throw new Error(`add method ${method.id} does not support polling`);
         result = await method.poll(params.session ?? null, context);
+        break;
+      }
+      case "oauth.cancel": {
+        const method = addMethod(resourceSupport(params.resourceType), params.methodId);
+        if (method.type === "oauth2.0") await method.cancel?.(params.session ?? null, context);
+        result = null;
         break;
       }
       case "oauth.complete": {

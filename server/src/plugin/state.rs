@@ -243,65 +243,74 @@ impl PluginStateStore {
         resource_type: &str,
         drafts: Vec<ResourceDraft>,
     ) -> Result<UpsertOutcome> {
-        let mut records = self.resources(plugin_id, resource_type).await?;
-        let now = now_ms();
-        let mut outcome = UpsertOutcome {
-            added: 0,
-            updated: 0,
-        };
-        for draft in drafts {
-            if draft.key.trim().is_empty() {
-                return Err(Error::Protocol("plugin resource draft requires key".into()));
-            }
-            let state = draft
-                .state
-                .map_or(ResourceState::Ready, ResourceState::from);
-            match records.iter_mut().find(|record| record.key == draft.key) {
-                Some(existing) => {
-                    existing.private_data = draft.private_data;
-                    existing.state = state;
-                    existing.updated_at_ms = now;
-                    outcome.updated += 1;
+        self.modify_resources(plugin_id, resource_type, |records| {
+            let now = now_ms();
+            let mut outcome = UpsertOutcome {
+                added: 0,
+                updated: 0,
+            };
+            for draft in drafts {
+                if draft.key.trim().is_empty() {
+                    return Err(Error::Protocol("plugin resource draft requires key".into()));
                 }
-                None => {
-                    records.push(ResourceRecord {
-                        id: uuid::Uuid::new_v4().to_string(),
-                        key: draft.key,
-                        private_data: draft.private_data,
-                        state,
-                        created_at_ms: now,
-                        updated_at_ms: now,
-                    });
-                    outcome.added += 1;
+                let state = draft
+                    .state
+                    .map_or(ResourceState::Ready, ResourceState::from);
+                match records.iter_mut().find(|record| record.key == draft.key) {
+                    Some(existing) => {
+                        existing.private_data = draft.private_data;
+                        existing.state = state;
+                        existing.updated_at_ms = now;
+                        outcome.updated += 1;
+                    }
+                    None => {
+                        records.push(ResourceRecord {
+                            id: uuid::Uuid::new_v4().to_string(),
+                            key: draft.key,
+                            private_data: draft.private_data,
+                            state,
+                            created_at_ms: now,
+                            updated_at_ms: now,
+                        });
+                        outcome.added += 1;
+                    }
                 }
             }
-        }
-        self.save_resources(plugin_id, resource_type, &records)
-            .await?;
-        Ok(outcome)
+            Ok(outcome)
+        })
+        .await
     }
 
     pub async fn apply_patch(
         &self,
         plugin_id: &str,
         resource_type: &str,
-        resource_id: &str,
+        expected: &ResourceRecord,
         patch: ResourcePatch,
     ) -> Result<()> {
-        let mut records = self.resources(plugin_id, resource_type).await?;
-        let record = records
-            .iter_mut()
-            .find(|record| record.id == resource_id)
-            .ok_or_else(|| Error::RunNotFound(format!("plugin resource {resource_id}")))?;
-        if let Some(private_data) = patch.private_data {
-            record.private_data = private_data;
-        }
-        if let Some(state) = patch.state {
-            record.state = state.into();
-        }
-        record.updated_at_ms = now_ms();
-        self.save_resources(plugin_id, resource_type, &records)
-            .await
+        self.modify_resources(plugin_id, resource_type, |records| {
+            let record = records
+                .iter_mut()
+                .find(|record| record.id == expected.id)
+                .ok_or_else(|| Error::RunNotFound(format!("plugin resource {}", expected.id)))?;
+            // A login may replace this account while an upstream refresh is in flight.
+            // Never let a result based on the old credentials overwrite that new login.
+            if record.updated_at_ms != expected.updated_at_ms
+                || record.private_data != expected.private_data
+                || record.state != expected.state
+            {
+                return Ok(());
+            }
+            if let Some(private_data) = patch.private_data {
+                record.private_data = private_data;
+            }
+            if let Some(state) = patch.state {
+                record.state = state.into();
+            }
+            record.updated_at_ms = now_ms();
+            Ok(())
+        })
+        .await
     }
 
     pub async fn remove_resource(
@@ -310,15 +319,15 @@ impl PluginStateStore {
         resource_type: &str,
         resource_id: &str,
     ) -> Result<ResourceRecord> {
-        let mut records = self.resources(plugin_id, resource_type).await?;
-        let index = records
-            .iter()
-            .position(|record| record.id == resource_id)
-            .ok_or_else(|| Error::RunNotFound(format!("plugin resource {resource_id}")))?;
-        let removed = records.remove(index);
-        self.save_resources(plugin_id, resource_type, &records)
-            .await?;
-        Ok(removed)
+        self.modify_resources(plugin_id, resource_type, |records| {
+            let index = records
+                .iter()
+                .position(|record| record.id == resource_id)
+                .ok_or_else(|| Error::RunNotFound(format!("plugin resource {resource_id}")))?;
+            let removed = records.remove(index);
+            Ok(removed)
+        })
+        .await
     }
 
     pub async fn models(&self, plugin_id: &str, provider_id: &str) -> Result<Vec<StoredModel>> {
@@ -335,24 +344,17 @@ impl PluginStateStore {
         provider_id: &str,
         models: &[StoredModel],
     ) -> Result<()> {
-        let previous = self.models(plugin_id, provider_id).await?;
-        let models = models
-            .iter()
-            .cloned()
-            .map(|mut model| {
+        self.modify_models(plugin_id, provider_id, |previous| {
+            let mut updated = models.to_vec();
+            for model in &mut updated {
                 if let Some(old) = previous.iter().find(|old| old.id == model.id) {
                     model.enabled = old.enabled;
                 }
-                model
-            })
-            .collect::<Vec<_>>();
-        self.data
-            .update(
-                plugin_id,
-                &model_key(provider_id),
-                &serde_json::to_value(models)?,
-            )
-            .await
+            }
+            *previous = updated;
+            Ok(())
+        })
+        .await
     }
 
     pub async fn set_model_enabled(
@@ -362,18 +364,33 @@ impl PluginStateStore {
         model_id: &str,
         enabled: bool,
     ) -> Result<()> {
-        let mut models = self.models(plugin_id, provider_id).await?;
-        let model = models
-            .iter_mut()
-            .find(|model| model.id == model_id)
-            .ok_or_else(|| Error::RunNotFound(format!("plugin model {model_id}")))?;
-        model.enabled = enabled;
+        self.modify_models(plugin_id, provider_id, |models| {
+            let model = models
+                .iter_mut()
+                .find(|model| model.id == model_id)
+                .ok_or_else(|| Error::RunNotFound(format!("plugin model {model_id}")))?;
+            model.enabled = enabled;
+            Ok(())
+        })
+        .await
+    }
+
+    async fn modify_models<T>(
+        &self,
+        plugin_id: &str,
+        provider_id: &str,
+        change: impl FnOnce(&mut Vec<StoredModel>) -> Result<T>,
+    ) -> Result<T> {
         self.data
-            .update(
-                plugin_id,
-                &model_key(provider_id),
-                &serde_json::to_value(models)?,
-            )
+            .modify(plugin_id, &model_key(provider_id), |value| {
+                let mut models = if value.is_null() {
+                    Vec::new()
+                } else {
+                    serde_json::from_value(value)?
+                };
+                let result = change(&mut models)?;
+                Ok((serde_json::to_value(models)?, result))
+            })
             .await
     }
 
@@ -381,18 +398,22 @@ impl PluginStateStore {
         self.data.clear(plugin_id).await
     }
 
-    async fn save_resources(
+    async fn modify_resources<T>(
         &self,
         plugin_id: &str,
         resource_type: &str,
-        records: &[ResourceRecord],
-    ) -> Result<()> {
+        change: impl FnOnce(&mut Vec<ResourceRecord>) -> Result<T>,
+    ) -> Result<T> {
         self.data
-            .update(
-                plugin_id,
-                &resource_key(resource_type),
-                &serde_json::to_value(records)?,
-            )
+            .modify(plugin_id, &resource_key(resource_type), |value| {
+                let mut records = if value.is_null() {
+                    Vec::new()
+                } else {
+                    serde_json::from_value(value)?
+                };
+                let result = change(&mut records)?;
+                Ok((serde_json::to_value(records)?, result))
+            })
             .await
     }
 }
@@ -459,7 +480,7 @@ mod tests {
             .apply_patch(
                 "dev.example",
                 "account",
-                &records[0].id,
+                &records[0],
                 ResourcePatch {
                     private_data: None,
                     state: Some(ResourceStateInput::Cooling {
@@ -493,5 +514,122 @@ mod tests {
         assert_eq!(models.len(), 1);
         assert!(models[0].images);
         assert_eq!(models[0].private_data["reasoningEfforts"][0], "low");
+    }
+
+    #[tokio::test]
+    async fn an_inflight_refresh_cannot_overwrite_a_newer_login() {
+        let (_root, store) = store();
+        for token in ["old", "new"] {
+            store
+                .upsert_resources(
+                    "dev.example",
+                    "account",
+                    vec![ResourceDraft {
+                        key: "same-account".into(),
+                        private_data: serde_json::json!({"token":token}),
+                        state: None,
+                    }],
+                )
+                .await
+                .unwrap();
+        }
+        let latest = store
+            .resources("dev.example", "account")
+            .await
+            .unwrap()
+            .remove(0);
+        let mut stale = latest.clone();
+        stale.private_data = serde_json::json!({"token":"old"});
+        store
+            .apply_patch(
+                "dev.example",
+                "account",
+                &stale,
+                ResourcePatch {
+                    private_data: Some(serde_json::json!({"token":"stale refresh"})),
+                    state: Some(ResourceStateInput::Invalid { message: None }),
+                },
+            )
+            .await
+            .unwrap();
+        let records = store.resources("dev.example", "account").await.unwrap();
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0].private_data["token"], "new");
+        assert!(records[0].state.is_ready(now_ms()));
+    }
+
+    #[tokio::test]
+    async fn concurrent_logins_and_refreshes_preserve_every_account_after_reopen() {
+        let (root, store) = store();
+        store
+            .upsert_resources(
+                "dev.example",
+                "account",
+                vec![ResourceDraft {
+                    key: "existing".into(),
+                    private_data: serde_json::json!({"token":"original"}),
+                    state: None,
+                }],
+            )
+            .await
+            .unwrap();
+        let existing = store
+            .resources("dev.example", "account")
+            .await
+            .unwrap()
+            .remove(0);
+        let mut tasks = tokio::task::JoinSet::new();
+        for index in 0..24 {
+            let store = store.clone();
+            let expected = existing.clone();
+            tasks.spawn(async move {
+                if index % 2 == 0 {
+                    store
+                        .apply_patch(
+                            "dev.example",
+                            "account",
+                            &expected,
+                            ResourcePatch {
+                                private_data: Some(serde_json::json!({"token":"refreshed"})),
+                                state: None,
+                            },
+                        )
+                        .await
+                        .unwrap();
+                } else {
+                    store
+                        .upsert_resources(
+                            "dev.example",
+                            "account",
+                            vec![ResourceDraft {
+                                key: format!("account-{index}"),
+                                private_data: serde_json::json!({"token":index}),
+                                state: None,
+                            }],
+                        )
+                        .await
+                        .unwrap();
+                }
+            });
+        }
+        while let Some(result) = tasks.join_next().await {
+            result.unwrap();
+        }
+        let reopened =
+            PluginStateStore::new(PluginDataStore::for_test(root.path().join("data")).unwrap());
+        let records = reopened.resources("dev.example", "account").await.unwrap();
+        assert_eq!(
+            records.len(),
+            13,
+            "refreshing an existing account must not erase new logins"
+        );
+        assert_eq!(
+            records
+                .iter()
+                .find(|r| r.id == existing.id)
+                .unwrap()
+                .private_data["token"],
+            "refreshed"
+        );
     }
 }

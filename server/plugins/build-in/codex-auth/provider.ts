@@ -57,7 +57,7 @@ function headers(data: AccountData, cacheKey: string | null): Record<string, str
     authorization: `Bearer ${data.accessToken}`,
     originator: "codex_cli_rs",
   };
-  const accountId = chatGptAccountId(data.accessToken);
+  const accountId = data.accountId ?? chatGptAccountId(data.accessToken);
   if (accountId) result["ChatGPT-Account-Id"] = accountId;
   // Codex 后端的缓存亲和契约:session-id / thread-id / prompt_cache_key
   // 三者同源(见 codex-rs client.rs);缺头会导致请求落在随机分片上。

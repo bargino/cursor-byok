@@ -15,6 +15,21 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  account-plugins:
+    name: Account plugin tests
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.6
+      - name: Test all bundled account plugins
+        run: |
+          for plugin in codex-auth antigravity-auth grok-auth workbuddy-auth qoder-auth kiro-auth teleagent-auth; do
+            deno test --config "server/plugins/build-in/${plugin}/deno.json" "server/plugins/build-in/${plugin}"
+          done
+          deno test --allow-read --allow-write server/src/plugin/native/teleagent_test.ts
+
   rust:
     name: Rust (Linux)
     runs-on: ubuntu-22.04

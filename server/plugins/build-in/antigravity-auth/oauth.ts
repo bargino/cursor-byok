@@ -58,7 +58,7 @@ async function begin(
     code_challenge: input.codeChallenge,
     code_challenge_method: "S256",
     access_type: "offline",
-    prompt: "consent",
+    prompt: "select_account consent",
   });
   return {
     session: { createdAtMs: Date.now() },

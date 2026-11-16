@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { api, pluginText, type PluginDescriptor, type PluginImportFile, type PluginRuntimePhase, type PluginRuntimeStatus } from "../../shared/api";
+import { api, pluginText, type PluginDescriptor, type PluginImportFile, type PluginResourceDescriptor, type PluginRuntimePhase, type PluginRuntimeStatus } from "../../shared/api";
 import { useI18n } from "../../i18n/store";
 import { PageContent } from "../../shell/layout/PageContent";
 import { appStore, useAppStore } from "../../shared/store/appStore";
@@ -136,16 +136,16 @@ function PluginCard({ plugin, onOpen }: {
   const { locale } = useI18n();
   const { ports } = useAppStore();
   const message = useMessage();
-  const importInput = useRef<HTMLInputElement>(null);
+  const importInputs = useRef<Record<string, HTMLInputElement | null>>({});
   const [importing, setImporting] = useState(false);
   const configured = plugin.providers.some((provider) => provider.configured);
   const accountCount = plugin.resources.reduce((count, resource) => count + resource.resources.length, 0);
   const modelCount = plugin.providers.reduce((count, provider) => count + provider.models.length, 0);
   const subtitle = plugin.providers.map((provider) => pluginText(provider.displayName, locale)).join(" · ") || plugin.id;
-  const importResource = plugin.resources.find((resource) => resource.import);
-  const exportResource = plugin.resources.find((resource) => resource.resources.length > 0);
+  const importResources = plugin.resources.filter((resource) => resource.import);
+  const exportResources = plugin.resources.filter((resource) => resource.resources.length > 0);
 
-  const importFiles = async (files: FileList | null) => {
+  const importFiles = async (files: FileList | null, importResource: PluginResourceDescriptor) => {
     if (!files?.length || !importResource) return;
     setImporting(true);
     try {
@@ -166,37 +166,27 @@ function PluginCard({ plugin, onOpen }: {
       message(cause instanceof Error ? cause.message : String(cause), { duration: 5000 });
     } finally {
       setImporting(false);
-      if (importInput.current) importInput.current.value = "";
+      const input = importInputs.current[importResource.type];
+      if (input) input.value = "";
     }
   };
 
   const moreItems: ActionMenuItem[] = [
-    ...(importResource
-      ? [
-          {
-            id: "import",
-            label: importing ? t("正在导入…") : t("批量导入"),
-            disabled: importing,
-            onSelect: () => importInput.current?.click(),
-          },
-        ]
-      : []),
-    ...(exportResource
-      ? [
-          {
-            id: "export",
-            label: t("批量导出"),
-            onSelect: () =>
-              void api.openExternalUrl(
-                api.pluginResourceExportUrl(
-                  ports.service_port,
-                  plugin.id,
-                  exportResource.type,
-                ),
-              ),
-          },
-        ]
-      : []),
+    ...importResources.map((resource) => ({
+      id: `import:${resource.type}`,
+      label: importing ? t("正在导入…") : importResources.length === 1 ? t("批量导入")
+        : t("导入 {name}", { name: pluginText(resource.displayName, locale) }),
+      disabled: importing,
+      onSelect: () => importInputs.current[resource.type]?.click(),
+    })),
+    ...exportResources.map((resource) => ({
+      id: `export:${resource.type}`,
+      label: exportResources.length === 1 ? t("批量导出")
+        : t("导出 {name}", { name: pluginText(resource.displayName, locale) }),
+      onSelect: () => void api.openExternalUrl(
+        api.pluginResourceExportUrl(ports.service_port, plugin.id, resource.type),
+      ),
+    })),
     ...(plugin.version
       ? [{ id: "version", type: "text" as const, label: `v${plugin.version}` }]
       : []),
@@ -234,7 +224,7 @@ function PluginCard({ plugin, onOpen }: {
           label={t("添加账号")}
           onClick={() => onOpen(plugin.id, "add")}
         />
-        {configured && (
+        {accountCount > 0 && (
           <TruncatedButton
             size="small"
             label={t("账号管理")}
@@ -246,16 +236,17 @@ function PluginCard({ plugin, onOpen }: {
             <ActionMenu label={t("更多")} items={moreItems} />
           </span>
         )}
-        {importResource && (
+        {importResources.map((resource) => (
           <input
-            ref={importInput}
+            key={resource.type}
+            ref={(element) => { importInputs.current[resource.type] = element; }}
             type="file"
             hidden
-            accept={importResource.import?.accept.join(",")}
-            multiple={importResource.import?.multiple ?? false}
-            onChange={(event) => void importFiles(event.target.files)}
+            accept={resource.import?.accept.join(",")}
+            multiple={resource.import?.multiple ?? false}
+            onChange={(event) => void importFiles(event.target.files, resource)}
           />
-        )}
+        ))}
       </div>
     </Card>
   );

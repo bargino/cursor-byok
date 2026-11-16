@@ -1,0 +1,21 @@
+{
+  "apiVersion": 1,
+  "id": "dev.cursorbyok.kiro-auth",
+  "name": "Kiro",
+  "version": "0.1.0",
+  "author": "Cursor BYOK contributors",
+  "minAppVersion": "1.0.4",
+  "icon": "assets/kiro.svg",
+  "entry": "main.ts",
+  "permissions": {
+    "network": [
+      "q.us-east-1.amazonaws.com",
+      "q.eu-central-1.amazonaws.com",
+      "codewhisperer.us-east-1.amazonaws.com",
+      "oidc.us-east-1.amazonaws.com",
+      "oidc.eu-central-1.amazonaws.com",
+      "prod.us-east-1.auth.desktop.kiro.dev",
+      "prod.eu-central-1.auth.desktop.kiro.dev"
+    ]
+  }
+}

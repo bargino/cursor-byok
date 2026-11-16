@@ -37,6 +37,7 @@ You can connect OpenAI- and Anthropic-compatible services, customize endpoints, 
 
 - **Bring your own model channels:** Configure your own API endpoint, credentials, and model IDs.
 - **Multiple API protocols:** Use OpenAI- and Anthropic-compatible APIs or a custom endpoint.
+- **Account plugins:** Sign in to WorkBuddy, Qoder, TeleAgent or Kiro, save multiple accounts, rotate available accounts and query credits. [Login requirements and import formats](support/releases/v1.0.4.md).
 - **Model management:** Add, duplicate, edit, reorder, and batch-test multiple model configurations.
 - **Connection benchmarks:** Measure time to first token, generation speed, and inspect raw provider responses.
 - **Agent workflows:** Keep tool calling, Skills, MCP, and multi-turn conversations available.

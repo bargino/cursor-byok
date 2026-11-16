@@ -83,6 +83,7 @@ struct HostContext {
     store: Store,
     invocations: Arc<Mutex<HashMap<String, Arc<InvocationState>>>>,
     streams: Arc<Mutex<HashMap<String, StreamLines>>>,
+    native_logins: super::native_login::NativeLogins,
 }
 
 impl PluginWorker {
@@ -109,6 +110,7 @@ impl PluginWorker {
                     store,
                     invocations: Arc::new(Mutex::new(HashMap::new())),
                     streams: Arc::new(Mutex::new(HashMap::new())),
+                    native_logins: super::native_login::NativeLogins::new(executable.clone()),
                 },
                 plugin_id,
                 executable,
@@ -218,6 +220,7 @@ impl PluginWorker {
     }
 
     pub async fn stop(&self) {
+        self.inner.host.native_logins.cancel_all();
         if let Some(mut process) = self.inner.process.lock().await.take() {
             let _ = process.child.kill().await;
         }
@@ -448,6 +451,24 @@ impl HostContext {
         params: serde_json::Value,
     ) -> Result<serde_json::Value> {
         match method {
+            "desktop.teleagent.begin" | "desktop.teleagent.poll" | "desktop.teleagent.cancel" => {
+                if self.plugin_id != "dev.cursorbyok.teleagent-auth" {
+                    return Err(Error::Config(
+                        "native TeleAgent login is restricted to the built-in TeleAgent plugin"
+                            .into(),
+                    ));
+                }
+                match method {
+                    "desktop.teleagent.begin" => self.native_logins.begin().await,
+                    "desktop.teleagent.poll" => {
+                        self.native_logins.poll(required_string(&params, "id")?)
+                    }
+                    _ => {
+                        self.native_logins.cancel(required_string(&params, "id")?);
+                        Ok(serde_json::Value::Null)
+                    }
+                }
+            }
             "network.fetch" => self.fetch(request_id, params).await,
             "network.stream.open" => self.stream_open(request_id, params).await,
             "network.stream.read" => self.stream_read(params).await,
@@ -502,6 +523,14 @@ impl HostContext {
             .redirect(reqwest::redirect::Policy::none())
             .connect_timeout(Duration::from_secs(30))
             .build()?;
+        // Credential exchange responses contain tokens. They are never inference logs,
+        // and must not consume the recorder intended for the subsequent model request.
+        let credential_request = url.path().split('/').any(|part| {
+            matches!(
+                part.to_ascii_lowercase().as_str(),
+                "auth" | "oauth" | "oauth2" | "token" | "devicetoken" | "jobtoken" | "refreshtoken"
+            )
+        });
         let mut request = client.request(method, url);
         if let Some(headers) = params.get("headers").and_then(serde_json::Value::as_object) {
             for (name, value) in headers {
@@ -519,7 +548,9 @@ impl HostContext {
             .as_ref()
             .map(|state| state.cancellation.clone())
             .unwrap_or_default();
-        let recorder = invocation.and_then(|state| state.claim_recorder());
+        let recorder = invocation
+            .filter(|_| !credential_request)
+            .and_then(|state| state.claim_recorder());
         if let Some(recorder) = &recorder {
             let (headers, body) = recorded_network_request(params)?;
             recorder.request(headers, &body).await?;
@@ -574,6 +605,14 @@ impl HostContext {
         request_id: &str,
         params: serde_json::Value,
     ) -> Result<serde_json::Value> {
+        let binary = match params
+            .get("responseEncoding")
+            .and_then(serde_json::Value::as_str)
+        {
+            None => false,
+            Some("base64") => true,
+            Some(_) => return Err(Error::Protocol("unsupported plugin stream encoding".into())),
+        };
         let (request, cancellation, recorder) = self.request(request_id, &params).await?;
         let response = tokio::select! {
             _ = cancellation.cancelled() => return Err(Error::Cancelled),
@@ -620,6 +659,17 @@ impl HostContext {
                         let _ = sender.send(Err(error)).await;
                         return;
                     }
+                }
+                if binary {
+                    use base64::Engine;
+                    if sender
+                        .send(Ok(base64::engine::general_purpose::STANDARD.encode(&chunk)))
+                        .await
+                        .is_err()
+                    {
+                        return;
+                    }
+                    continue;
                 }
                 buffered.extend_from_slice(&chunk);
                 while let Some(position) = buffered.iter().position(|byte| *byte == b'\n') {
@@ -768,6 +818,11 @@ mod tests {
                 "Authorization": "Bearer secret",
                 "X-Api-Key": "secret-key",
                 "Cookie": "session=secret",
+                "X-Refresh-Token": "refresh-secret",
+                "X-Device-Token": "device-secret",
+                "X-Token": "teleagent-secret",
+                "Cosy-Key": "qoder-encryption-key",
+                "X-Superagent-Signature": "teleagent-signature",
                 "content-type": "application/json",
                 "x-client-request-id": "request-1"
             },
@@ -791,6 +846,7 @@ mod tests {
             store,
             invocations,
             streams: Arc::new(Mutex::new(HashMap::new())),
+            native_logins: super::super::native_login::NativeLogins::new(PathBuf::new()),
         }
     }
 
@@ -806,6 +862,49 @@ mod tests {
             })
         );
         assert_eq!(body, serde_json::json!({ "model": "test", "stream": true }));
+    }
+
+    #[tokio::test]
+    async fn credential_exchange_is_not_recorded_and_does_not_claim_the_model_recorder() {
+        let (_directory, store, recorder) = recorder(true, "refresh-before-chat").await;
+        let host = host_with_recorder(store, recorder).await;
+        for path in [
+            "/v2/plugin/auth/token/refresh",
+            "/token",
+            "/api/v1/deviceToken/refresh",
+            "/api/v1/jobToken/refresh",
+            "/refreshToken",
+        ] {
+            let mut refresh = network_params();
+            refresh["url"] = format!("https://example.com{path}").into();
+            let (_, _, refresh_recorder) = host.request("invocation", &refresh).await.unwrap();
+            assert!(
+                refresh_recorder.is_none(),
+                "token response bodies must never reach call logs ({path})"
+            );
+        }
+        let (_, _, chat_recorder) = host.request("invocation", &network_params()).await.unwrap();
+        assert!(
+            chat_recorder.is_some(),
+            "the model request still owns its recorder"
+        );
+    }
+
+    #[tokio::test]
+    async fn arbitrary_plugins_cannot_open_native_login_windows() {
+        let (_directory, store, recorder) = recorder(false, "native-permission").await;
+        let host = host_with_recorder(store, recorder).await;
+        let error = host
+            .call(
+                "invocation",
+                "desktop.teleagent.begin",
+                serde_json::json!({}),
+            )
+            .await
+            .unwrap_err();
+        assert!(error
+            .to_string()
+            .contains("restricted to the built-in TeleAgent plugin"));
     }
 
     #[tokio::test]

@@ -177,7 +177,7 @@ fn validate_asset_path(directory: &Path, value: &str) -> Result<()> {
         .and_then(|value| value.to_str())
         .unwrap_or_default()
         .to_ascii_lowercase();
-    if !matches!(extension.as_str(), "svg" | "png" | "webp") {
+    if !matches!(extension.as_str(), "svg" | "png" | "webp" | "ico") {
         return Err(Error::Config(format!(
             "unsupported plugin icon format: {value}"
         )));

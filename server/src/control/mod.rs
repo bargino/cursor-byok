@@ -152,6 +152,7 @@ pub fn api_router(service: ControlService) -> Router {
             "/__byok-api__/api/plugins/oauth/{session_id}/poll",
             post(plugins::oauth_poll),
         )
+        .route("/__byok-api__/api/plugins/oauth/{session_id}", axum::routing::delete(plugins::oauth_cancel))
         .route(
             "/__byok-api__/api/plugins/{plugin_id}",
             axum::routing::delete(plugins::remove),

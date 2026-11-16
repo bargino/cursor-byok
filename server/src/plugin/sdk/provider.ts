@@ -104,7 +104,7 @@ export type ProviderInvokeInput = {
 
 /**
  * `resource-error` 把失败归因到选中的资源,宿主据此更新资源状态,
- * 并可在尚未发出任何事件时(未来)换一个资源重试。`patch` 同时用于
+ * 并在尚未发出任何事件时换一个资源重试。`patch` 同时用于
  * 持久化成功调用的副作用,例如刷新后的 access token。
  */
 export type ProviderResult =

@@ -1,0 +1,18 @@
+{
+  "apiVersion": 1,
+  "id": "dev.cursorbyok.workbuddy-auth",
+  "name": "WorkBuddy",
+  "version": "0.1.0",
+  "author": "Cursor BYOK contributors",
+  "minAppVersion": "1.0.4",
+  "icon": "assets/workbuddy.svg",
+  "entry": "main.ts",
+  "permissions": {
+    "network": [
+      "copilot.tencent.com",
+      "www.workbuddy.cn",
+      "www.codebuddy.ai",
+      "www.workbuddy.ai"
+    ]
+  }
+}

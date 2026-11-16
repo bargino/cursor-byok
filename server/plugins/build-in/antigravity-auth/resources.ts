@@ -255,9 +255,11 @@ export async function accountIdentity(
   const name = claim(payload, "name") ?? claim(payload, "preferred_username");
 
   const fingerprint = await tokenFingerprint(token);
-  const identity = (providedDisplayName && !providedDisplayName.includes("Antigravity"))
-    ? providedDisplayName
-    : (email ?? sub ?? fingerprint);
+  // Imported filenames and human names can be identical for different users.
+  // Only account claims or an actual email address are identity; other labels are presentation.
+  const suppliedEmail = providedDisplayName && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(providedDisplayName)
+    ? providedDisplayName.toLowerCase() : null;
+  const identity = email?.toLowerCase() ?? sub ?? suppliedEmail ?? fingerprint;
   const displayName = providedDisplayName ?? email ?? name ??
     (token.startsWith("AIza") ? `API Key (${fingerprint.slice(0, 6)})` : identity);
   return { key: `antigravity:${identity}`, displayName };

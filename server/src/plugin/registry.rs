@@ -1,5 +1,10 @@
 //! Orchestrates plugin capabilities: resources, model catalogs, and invocation.
-use std::{collections::HashMap, path::Path, sync::Arc, time::Duration};
+use std::{
+    collections::{HashMap, HashSet},
+    path::Path,
+    sync::Arc,
+    time::Duration,
+};
 
 use async_stream::try_stream;
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
@@ -18,6 +23,7 @@ use super::{
         OAUTH2_AUTHORIZATION_CODE_ADD_METHOD,
     },
     oauth_callback::{self, CallbackHandle, CallbackOutcome, CallbackRequest},
+    pool::ResourcePool,
     runtime::PluginRuntime,
     state::{now_ms, PluginStateStore, ResourceDraft, ResourcePatch, ResourceRecord, StoredModel},
     wire,
@@ -34,6 +40,10 @@ use crate::{
 const OAUTH_SLOW_DOWN_STEP_MS: i64 = 5_000;
 const MAX_IMPORT_DRAFTS: usize = 256;
 
+#[cfg(test)]
+#[path = "registry_tests.rs"]
+mod tests;
+
 #[derive(Clone)]
 pub struct PluginRegistry {
     inner: Arc<RegistryInner>,
@@ -44,6 +54,7 @@ struct RegistryInner {
     runtime: PluginRuntime,
     catalog: PluginCatalog,
     state: PluginStateStore,
+    pool: ResourcePool,
     entries: RwLock<Option<Vec<PluginEntry>>>,
     workers: Mutex<HashMap<String, Arc<PluginWorker>>>,
     oauth_sessions: Mutex<HashMap<String, OAuthSession>>,
@@ -91,6 +102,7 @@ enum OAuthPollWork {
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OAuthBeginResponse {
+    pub browser_opened: bool,
     pub session_id: String,
     pub user_code: Option<String>,
     pub verification_url: String,
@@ -141,6 +153,7 @@ impl PluginRegistry {
                 runtime,
                 catalog: PluginCatalog::managed(app_version)?,
                 state: PluginStateStore::new(data),
+                pool: ResourcePool::default(),
                 entries: RwLock::new(None),
                 workers: Mutex::new(HashMap::new()),
                 oauth_sessions: Mutex::new(HashMap::new()),
@@ -233,8 +246,8 @@ impl PluginRegistry {
         Ok(PluginInvocationPlan { model, request_url })
     }
 
-    /// 插件模型的统一 Provider 流:选首个可用资源,经 Worker 执行,
-    /// 事件与内置 Provider 走同一管道。未来的负载均衡在这里换资源重试。
+    /// Rotate ready accounts; retry resource failures only before any provider event.
+    /// Each account lease covers credential read, upstream invocation, and patch persistence.
     pub fn stream_model(
         &self,
         invocation: ModelInvocation,
@@ -254,58 +267,73 @@ impl PluginRegistry {
                 .into_iter()
                 .find(|model| model.id == upstream_id)
                 .ok_or_else(|| Error::RunNotFound(format!("plugin model {model_id}")))?;
-            let resource = match &provider.resource_type {
-                Some(resource_type) => Some((
-                    resource_type.clone(),
-                    registry.select_resource(&plugin_id, resource_type).await?,
-                )),
-                None => None,
-            };
             let request = wire::llm_request(&invocation)?;
-            let params = serde_json::json!({
-                "providerId": provider_id,
-                "model": stored.snapshot(),
-                "resource": resource.as_ref().map(|(resource_type, record)| record.snapshot(resource_type)),
-                "request": request,
-            });
             let worker = registry.worker(&entry, &executable).await;
-            let mut items = worker.invoke_streaming("provider.invoke", params, cancellation.clone(), Some(recorder)).await?;
+            let mut attempted = HashSet::new();
+            let mut last_error = None;
             yield ModelEvent::Start { model_call_id: invocation.call_id.clone() };
-            while let Some(item) = items.recv().await {
-                match item {
-                    WorkerStreamItem::Event(event) => {
-                        yield wire::model_event(&event)?;
+            'attempt: loop {
+                if cancellation.is_cancelled() {
+                    Err(Error::Provider("plugin call cancelled".into()))?;
+                }
+                let resource = match &provider.resource_type {
+                    Some(resource_type) => {
+                        let records = registry.inner.state.resources(&plugin_id, resource_type).await?;
+                        let selected = registry.inner.pool.select(&plugin_id, resource_type, &records, &attempted, now_ms())
+                            .ok_or_else(|| Error::Provider(last_error.clone().unwrap_or_else(||
+                                format!("plugin '{plugin_id}' has no ready '{resource_type}' account; add or refresh an account"))))?;
+                        attempted.insert(selected.id.clone());
+                        let lease = tokio::select! {
+                            _ = cancellation.cancelled() => Err(Error::Provider("plugin call cancelled".into())),
+                            lease = registry.inner.pool.lease(&selected.id) => Ok(lease),
+                        }?;
+                        // Another call may have refreshed, cooled, or removed this account while we waited.
+                        let current = registry.inner.state.resources(&plugin_id, resource_type).await?
+                            .into_iter().find(|r| r.id == selected.id && r.state.is_ready(now_ms()));
+                        let Some(record) = current else { continue 'attempt; };
+                        Some((resource_type.clone(), record, lease))
                     }
-                    WorkerStreamItem::Result(result) => {
-                        let value = result?;
-                        let status = value.get("status").and_then(serde_json::Value::as_str).unwrap_or_default();
-                        let patch = value.get("patch")
-                            .filter(|patch| !patch.is_null())
-                            .map(|patch| serde_json::from_value::<ResourcePatch>(patch.clone()))
-                            .transpose()?;
-                        if let (Some(patch), Some((resource_type, record))) = (patch, resource.as_ref()) {
-                            if let Err(error) = registry.inner.state
-                                .apply_patch(&plugin_id, resource_type, &record.id, patch).await
-                            {
-                                tracing::warn!(plugin = %plugin_id, %error, "failed to apply plugin resource patch");
-                            }
+                    None => None,
+                };
+                let params = serde_json::json!({
+                    "providerId": provider_id, "model": stored.snapshot(),
+                    "resource": resource.as_ref().map(|(kind, record, _)| record.snapshot(kind)),
+                    "request": request,
+                });
+                let mut items = worker.invoke_streaming("provider.invoke", params, cancellation.clone(), Some(recorder.clone())).await?;
+                let mut emitted = false;
+                while let Some(item) = items.recv().await {
+                    match item {
+                        WorkerStreamItem::Event(event) => {
+                            emitted = true;
+                            yield wire::model_event(&event)?;
                         }
-                        match status {
-                            "completed" => return,
-                            "resource-error" | "request-error" => {
-                                let message = value.get("message")
-                                    .and_then(serde_json::Value::as_str)
-                                    .unwrap_or("plugin provider call failed");
-                                Err(Error::Provider(message.to_owned()))?;
+                        WorkerStreamItem::Result(result) => {
+                            let value = result?;
+                            let status = value.get("status").and_then(serde_json::Value::as_str).unwrap_or_default();
+                            let patch = value.get("patch").filter(|p| !p.is_null())
+                                .map(|p| serde_json::from_value::<ResourcePatch>(p.clone())).transpose()?;
+                            if let (Some(patch), Some((kind, record, _))) = (patch, resource.as_ref()) {
+                                registry.inner.state.apply_patch(&plugin_id, kind, record, patch).await?;
                             }
-                            status => {
-                                Err(Error::Protocol(format!("unknown plugin provider result: {status}")))?;
+                            match status {
+                                "completed" => return,
+                                "resource-error" if !emitted && resource.is_some() => {
+                                    last_error = Some(value.get("message").and_then(serde_json::Value::as_str)
+                                        .unwrap_or("plugin account failed").to_owned());
+                                    continue 'attempt;
+                                }
+                                "resource-error" | "request-error" => {
+                                    Err(Error::Provider(value.get("message").and_then(serde_json::Value::as_str)
+                                        .unwrap_or("plugin provider call failed").to_owned()))?;
+                                }
+                                status => Err(Error::Protocol(format!("unknown plugin provider result: {status}")))?,
                             }
                         }
                     }
                 }
+                Err(Error::Provider(format!("plugin '{plugin_id}' worker stopped mid-stream")))?;
             }
-            Err(Error::Provider(format!("plugin '{plugin_id}' worker stopped mid-stream")))?;
         })
     }
 
@@ -329,13 +357,25 @@ impl PluginRegistry {
             })?;
         // 同一添加入口只有一个活跃生命周期。重新开始时先丢弃旧会话，
         // Drop 授权码会话中的 CallbackHandle 会立即释放 loopback listener。
-        self.inner.oauth_sessions.lock().await.retain(|_, session| {
-            session.plugin_id != plugin_id
-                || session.resource_type != resource_type
-                || session.method_id != method_id
-        });
+        let obsolete = self
+            .inner
+            .oauth_sessions
+            .lock()
+            .await
+            .iter()
+            .filter(|(_, s)| {
+                s.plugin_id == plugin_id
+                    && s.resource_type == resource_type
+                    && s.method_id == method_id
+            })
+            .map(|(id, _)| id.clone())
+            .collect::<Vec<_>>();
+        for id in obsolete {
+            self.oauth_cancel(&id).await?;
+        }
         let worker = self.worker(&entry, &executable).await;
         let session_id = uuid::Uuid::new_v4().to_string();
+        let mut browser_opened = false;
 
         let (
             session,
@@ -358,6 +398,7 @@ impl PluginRegistry {
                     )
                     .await?;
                 let begin: OAuth2Begin = serde_json::from_value(value)?;
+                browser_opened = begin.browser_opened;
                 (
                     begin.session,
                     begin.verification_url,
@@ -447,14 +488,10 @@ impl PluginRegistry {
         let cleanup_delay_ms = expires_at_ms.saturating_sub(now_ms()) as u64;
         tokio::spawn(async move {
             tokio::time::sleep(Duration::from_millis(cleanup_delay_ms)).await;
-            cleanup
-                .inner
-                .oauth_sessions
-                .lock()
-                .await
-                .remove(&cleanup_session_id);
+            let _ = cleanup.oauth_cancel(&cleanup_session_id).await;
         });
         Ok(OAuthBeginResponse {
+            browser_opened,
             session_id,
             user_code,
             verification_url,
@@ -462,6 +499,20 @@ impl PluginRegistry {
             expires_at_ms,
             poll_interval_ms,
         })
+    }
+
+    pub async fn oauth_cancel(&self, session_id: &str) -> Result<()> {
+        let session = self.inner.oauth_sessions.lock().await.remove(session_id);
+        if let Some(session) = session {
+            if matches!(session.flow, OAuthFlow::DeviceCode) {
+                let executable = self.executable()?;
+                let entry = self.find_entry(&executable, &session.plugin_id).await?;
+                self.worker(&entry, &executable).await.invoke("oauth.cancel", serde_json::json!({
+                    "resourceType":session.resource_type,"methodId":session.method_id,"session":session.session
+                }), CancellationToken::new()).await?;
+            }
+        }
+        Ok(())
     }
 
     pub async fn oauth_poll(&self, session_id: &str) -> Result<OAuthPollResponse> {
@@ -474,7 +525,8 @@ impl PluginRegistry {
                 });
             };
             if now >= state.expires_at_ms {
-                sessions.remove(session_id);
+                drop(sessions);
+                self.oauth_cancel(session_id).await?;
                 return Ok(OAuthPollResponse::Failed {
                     message: "authorization expired".into(),
                 });
@@ -610,6 +662,17 @@ impl PluginRegistry {
                 })
             }
             OAuth2Poll::Completed { resources } => {
+                if !self
+                    .inner
+                    .oauth_sessions
+                    .lock()
+                    .await
+                    .contains_key(session_id)
+                {
+                    return Ok(OAuthPollResponse::Failed {
+                        message: "authorization was cancelled".into(),
+                    });
+                }
                 // 持久化成功后才销毁设备码会话:写盘瞬时失败时下次轮询还能重试。
                 let response = self
                     .persist_oauth_resources(
@@ -620,15 +683,15 @@ impl PluginRegistry {
                         resources,
                     )
                     .await?;
-                self.inner.oauth_sessions.lock().await.remove(session_id);
+                self.oauth_cancel(session_id).await?;
                 Ok(response)
             }
             OAuth2Poll::Denied { message } => {
-                self.inner.oauth_sessions.lock().await.remove(session_id);
+                self.oauth_cancel(session_id).await?;
                 Ok(OAuthPollResponse::Denied { message })
             }
             OAuth2Poll::Failed { message } => {
-                self.inner.oauth_sessions.lock().await.remove(session_id);
+                self.oauth_cancel(session_id).await?;
                 Ok(OAuthPollResponse::Failed { message })
             }
         }
@@ -817,6 +880,7 @@ impl PluginRegistry {
                 "plugin '{plugin_id}' resource '{resource_type}' does not support refresh"
             )));
         }
+        let _lease = self.inner.pool.lease(resource_id).await;
         let record = self
             .find_record(plugin_id, resource_type, resource_id)
             .await?;
@@ -835,7 +899,7 @@ impl PluginRegistry {
         let patch: ResourcePatch = serde_json::from_value(value)?;
         self.inner
             .state
-            .apply_patch(plugin_id, resource_type, resource_id, patch)
+            .apply_patch(plugin_id, resource_type, &record, patch)
             .await
     }
 
@@ -864,6 +928,7 @@ impl PluginRegistry {
                 "plugin '{plugin_id}' resource action '{action_id}' has an invalid target"
             )));
         }
+        let _lease = self.inner.pool.lease(resource_id).await;
         let record = self
             .find_record(plugin_id, resource_type, resource_id)
             .await?;
@@ -885,7 +950,7 @@ impl PluginRegistry {
         if let Some(patch) = result.patch.clone() {
             self.inner
                 .state
-                .apply_patch(plugin_id, resource_type, resource_id, patch)
+                .apply_patch(plugin_id, resource_type, &record, patch)
                 .await?;
         }
         Ok(serde_json::to_value(ResourceActionResponse::from(result))?)
@@ -900,6 +965,7 @@ impl PluginRegistry {
         let executable = self.executable()?;
         let entry = self.find_entry(&executable, plugin_id).await?;
         let resource = find_resource(&entry, resource_type)?;
+        let _lease = self.inner.pool.lease(resource_id).await;
         let record = self
             .find_record(plugin_id, resource_type, resource_id)
             .await?;
@@ -1186,7 +1252,7 @@ impl PluginRegistry {
         Ok(models.len())
     }
 
-    /// 第一版选择策略:按创建顺序取首个可用资源;冷却到期视为可用。
+    /// Model discovery uses a ready account without advancing invocation rotation.
     async fn select_resource(
         &self,
         plugin_id: &str,
@@ -1202,7 +1268,6 @@ impl PluginRegistry {
         records
             .iter()
             .find(|record| record.state.is_ready(now))
-            .or_else(|| records.first())
             .cloned()
             .ok_or_else(|| Error::Provider("no plugin resource is available".into()))
     }
@@ -1282,6 +1347,8 @@ impl PluginRegistry {
 #[derive(Debug, serde::Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct OAuth2Begin {
+    #[serde(default)]
+    browser_opened: bool,
     session: serde_json::Value,
     user_code: String,
     verification_url: String,

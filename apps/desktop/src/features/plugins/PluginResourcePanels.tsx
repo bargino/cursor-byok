@@ -71,16 +71,24 @@ function OAuthMethodCard({ pluginId, resourceType, method, onConfigured }: {
     window.setTimeout(() => setCopied(false), 2000);
   };
 
-  useEffect(() => () => { stopped.current = true; }, []);
+  useEffect(() => {
+    stopped.current = false;
+    return () => { stopped.current = true; };
+  }, []);
+  useEffect(() => {
+    if (!begun) return;
+    return () => { void api.pluginOAuthCancel(begun.sessionId).catch(() => undefined); };
+  }, [begun]);
 
   useEffect(() => {
     if (!begun || status !== "polling") return;
     let timer = 0;
+    let cancelled = false;
     const poll = async (intervalMs: number) => {
-      if (stopped.current) return;
+      if (stopped.current || cancelled) return;
       try {
         const result = await api.pluginOAuthPoll(begun.sessionId);
-        if (stopped.current) return;
+        if (stopped.current || cancelled) return;
         if (result.status === "pending") {
           timer = window.setTimeout(() => void poll(result.pollIntervalMs), Math.max(1000, result.pollIntervalMs));
           return;
@@ -99,13 +107,13 @@ function OAuthMethodCard({ pluginId, resourceType, method, onConfigured }: {
         setStatus("error");
         setError(result.message || t("授权被拒绝或已失败。"));
       } catch (cause) {
-        if (stopped.current) return;
+        if (stopped.current || cancelled) return;
         setError(errorText(cause));
         timer = window.setTimeout(() => void poll(intervalMs), Math.max(1000, intervalMs));
       }
     };
     timer = window.setTimeout(() => void poll(begun.pollIntervalMs), Math.max(1000, begun.pollIntervalMs));
-    return () => window.clearTimeout(timer);
+    return () => { cancelled = true; window.clearTimeout(timer); };
   }, [begun, onConfigured, status]);
 
   const start = async () => {
@@ -113,10 +121,14 @@ function OAuthMethodCard({ pluginId, resourceType, method, onConfigured }: {
     setError(null);
     try {
       const next = await api.pluginOAuthBegin(pluginId, resourceType, method.id);
+      if (stopped.current) {
+        await api.pluginOAuthCancel(next.sessionId).catch(() => undefined);
+        return;
+      }
       setBegun(next);
       setStatus("polling");
       if (next.userCode) await api.copyCursorText(next.userCode).catch(() => undefined);
-      await api.openExternalUrl(next.verificationUrlComplete || next.verificationUrl);
+      if (!next.browserOpened) await api.openExternalUrl(next.verificationUrlComplete || next.verificationUrl);
     } catch (cause) {
       setStatus("error");
       setError(errorText(cause));
@@ -138,7 +150,7 @@ function OAuthMethodCard({ pluginId, resourceType, method, onConfigured }: {
       <Button variant="primary" disabled={status === "starting" || status === "polling"} onClick={() => void start()}>
         {status === "starting" ? t("正在申请授权码…") : status === "polling" ? t("等待网页端确认授权中…") : t("开始登录")}
       </Button>
-      {begun && status === "polling" && <Button onClick={() => void api.openExternalUrl(begun.verificationUrlComplete || begun.verificationUrl)}>{t("打开授权网页")}</Button>}
+      {begun && !begun.browserOpened && status === "polling" && <Button onClick={() => void api.openExternalUrl(begun.verificationUrlComplete || begun.verificationUrl)}>{t("打开授权网页")}</Button>}
     </div>
     {status === "success" && <span className={styles.success}>{t("账号已保存，模型目录已同步。")}</span>}
     {error && <span className={styles.error} role="alert">{error}</span>}
@@ -152,6 +164,7 @@ export function PluginSettingsPanel({ plugin }: { plugin: PluginDescriptor }) {
   const [resourceAction, setResourceAction] = useState<{
     resource: PluginResourceDescriptor;
     item: PluginResourceView;
+    action: PluginResourceAction;
   } | null>(null);
   const [resourceActionResult, setResourceActionResult] = useState<PluginResourceActionResult | null>(null);
   const [resourceActionError, setResourceActionError] = useState<string | null>(null);
@@ -196,7 +209,7 @@ export function PluginSettingsPanel({ plugin }: { plugin: PluginDescriptor }) {
   };
 
   const openResourceAction = (resource: PluginResourceDescriptor, item: PluginResourceView, action: PluginResourceAction) => {
-    setResourceAction({ resource, item });
+    setResourceAction({ resource, item, action });
     setResourceActionResult(null);
     setResourceActionError(null);
     void executeResourceAction({ resource, item }, action);
@@ -238,7 +251,7 @@ export function PluginSettingsPanel({ plugin }: { plugin: PluginDescriptor }) {
       })}
     />}
     {resourceAction && <ResourceActionModal
-      action={resourceAction.resource.actions.find((item) => item.target === "resource") ?? null}
+      action={resourceAction.action}
       cardAction={resourceAction.resource.actions.find((item) => item.target === "card") ?? null}
       result={resourceActionResult}
       busy={busy !== null}
@@ -425,7 +438,7 @@ function ResourceActionModal({ action, cardAction, result, busy, error, onClose,
         {result?.description && <span className={styles.actionDescription}>{pluginText(result.description, locale)}</span>}
         {busy && <span className={styles.empty}>{t("正在加载…")}</span>}
         {error && <span className={styles.error} role="alert">{error}</span>}
-        {!busy && !error && result && result.cards.length === 0 && <span className={styles.empty}>{t("没有可用的重置卡。")}</span>}
+        {!busy && !error && result && result.cards.length === 0 && !result.description && <span className={styles.empty}>{t("操作已完成，暂无明细。")}</span>}
         {!busy && !error && result && <div className={styles.actionCardList}>
         {result.cards.map((card) => <Card key={card.id} className={styles.actionCard}>
           <div className={styles.actionCardMain}>

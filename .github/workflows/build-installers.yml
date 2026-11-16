@@ -1,0 +1,94 @@
+name: Build desktop installers
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-installers-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build (${{ matrix.platform }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux-x86_64
+            os: ubuntu-22.04
+            args: --bundles appimage,deb,rpm
+            target: ""
+          - platform: windows-x86_64
+            os: windows-latest
+            args: --bundles nsis,msi
+            target: ""
+          - platform: macos-aarch64
+            os: macos-26
+            args: --target aarch64-apple-darwin --bundles app,dmg
+            target: aarch64-apple-darwin
+          - platform: macos-x86_64
+            os: macos-15-intel
+            args: --target x86_64-apple-darwin --bundles app,dmg
+            target: x86_64-apple-darwin
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Preserve canonical source line endings
+        run: git config --global core.autocrlf false
+
+      - uses: actions/checkout@v4
+
+      - name: Install Linux system dependencies
+        if: matrix.platform == 'linux-x86_64'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Rust target
+        if: matrix.target != ''
+        run: rustup target add ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: . -> target
+          cache-on-failure: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: apps/desktop
+        run: npm exec --yes --registry=https://registry.npmjs.org --package=npm@10.9.9 -- npm ci
+
+      - name: Build and sign installers
+        uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ contains(matrix.platform, 'macos') && '-' || '' }}
+        with:
+          projectPath: apps/desktop
+          uploadUpdaterJson: false
+          args: ${{ matrix.args }}
+
+      - name: Collect packages and checksums
+        id: packages
+        shell: bash
+        run: python .github/scripts/collect-desktop-installers.py --platform '${{ matrix.platform }}' --target '${{ matrix.target }}'
+
+      - name: Upload installers
+        uses: actions/upload-artifact@v4
+        with:
+          name: cursor-byok-${{ steps.packages.outputs.version }}-${{ matrix.platform }}
+          path: desktop-installers/*
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0

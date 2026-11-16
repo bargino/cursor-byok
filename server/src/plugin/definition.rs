@@ -45,6 +45,10 @@ impl PluginDefinitionLoader {
             (&import_map, include_str!("sdk/import-map.json")),
             (&collector, include_str!("sdk/collect.ts")),
             (&worker, include_str!("sdk/worker.ts")),
+            (
+                &sdk_dir.join("accounts.ts"),
+                include_str!("sdk/accounts.ts"),
+            ),
             (&sdk_dir.join("plugin.ts"), include_str!("sdk/plugin.ts")),
             (
                 &sdk_dir.join("provider.ts"),
