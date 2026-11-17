@@ -2,11 +2,9 @@
 
 # Cursor BYOK
 
-### 把自己的模型 API 和账号接入 Cursor
+运行在本机的开源 Cursor 模型网关，支持自定义模型 API、账号池、积分查询与用量统计。
 
-开源桌面模型网关：自定义 API、多账号池、积分查询与用量统计。
-
-[English](./README.md) · [文档站](https://bargino.github.io/cursor-byok/zh/) · [下载安装](#下载安装) · [快速开始](#快速开始) · [账号插件](#账号插件) · [提交问题](https://github.com/bargino/cursor-byok/issues)
+[English](./README.md) · [下载安装](#下载安装) · [快速开始](#快速开始) · [账号插件](#账号插件) · [提交问题](https://github.com/bargino/cursor-byok/issues)
 
 [![Release](https://img.shields.io/github/v/release/bargino/cursor-byok?style=flat-square)](https://github.com/bargino/cursor-byok/releases/latest)
 [![CI](https://github.com/bargino/cursor-byok/actions/workflows/ci.yml/badge.svg)](https://github.com/bargino/cursor-byok/actions/workflows/ci.yml)
@@ -14,8 +12,6 @@
 [![License](https://img.shields.io/github/license/bargino/cursor-byok?style=flat-square)](./LICENSE)
 
 </div>
-
-![Cursor BYOK：自己的模型 API、多账号池与积分查询](./assets/banners/cursor-byok/geometric-zh-1280x640.png)
 
 在 Cursor 中使用自己配置的 OpenAI / Anthropic 兼容服务，或通过账号插件接入已有服务的模型。在一个桌面应用里管理模型连接、多个账号和调用记录。
 
@@ -176,9 +172,7 @@ cursor-byok/
 ├── support/                     # 仓库辅助设施
 │   ├── cursor-protocol-extractor/ # Cursor 协议提取与 Go 代码生成工具
 │   ├── cursor-capture/            # Cursor 协议抓取和调试工具
-│   ├── promotion/                 # 分享文案、素材入口与渠道说明
 │   └── benchmarks/                # 代码搜索和索引基准测试
-├── assets/banners/    # 可编辑分享图与导出 PNG
 ├── images/            # README 展示图片
 ├── Cargo.toml         # Rust 工作区配置
 └── Makefile           # 常用开发、检查和构建命令
@@ -238,12 +232,10 @@ make build-docker    # 构建 Docker 镜像
 
 ## 社区与反馈
 
-如果项目对你有帮助，欢迎 **[Star 本仓库](https://github.com/bargino/cursor-byok)**，方便关注后续更新。复现清楚的问题、安装反馈和 Pull Request 都能帮助项目继续完善。
+欢迎提交可复现的问题、安装反馈和 Pull Request。
 
 - [本 fork 的 GitHub Issues](https://github.com/bargino/cursor-byok/issues)：问题、功能建议与账号插件反馈。
 - [维护与构建说明](support/fork-maintenance.md)：兼容范围、回归记录和源码构建。
-- [公开文档与常见问题](https://bargino.github.io/cursor-byok/zh/faq/)：安装、账号池、积分与模型配置说明。
-- [分享素材与文案](support/promotion/README.md)：中英文介绍、三套分享图与渠道说明。
 - [原上游使用指南](https://docs.leokun.cn/zh/docs)：历史安装文档，本 fork 新功能以仓库说明为准。
 
 提交问题时，请附上操作系统、Cursor / Cursor BYOK 版本、模型类型、请求协议、脱敏错误信息和复现步骤。

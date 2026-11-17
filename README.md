@@ -2,11 +2,9 @@
 
 # Cursor BYOK
 
-### Your models and accounts. In Cursor.
+An open-source local model gateway for Cursor, with configurable model APIs, account plugins and usage tracking.
 
-An open-source desktop gateway for your own model APIs, account pools, and usage tracking.
-
-[中文说明](./README-CN.md) · [Documentation](https://bargino.github.io/cursor-byok/) · [Download](#download) · [Quick start](#quick-start) · [Account plugins](#account-plugins) · [Report an issue](https://github.com/bargino/cursor-byok/issues)
+[中文说明](./README-CN.md) · [Download](#download) · [Quick start](#quick-start) · [Account plugins](#account-plugins) · [Report an issue](https://github.com/bargino/cursor-byok/issues)
 
 [![Release](https://img.shields.io/github/v/release/bargino/cursor-byok?style=flat-square)](https://github.com/bargino/cursor-byok/releases/latest)
 [![CI](https://github.com/bargino/cursor-byok/actions/workflows/ci.yml/badge.svg)](https://github.com/bargino/cursor-byok/actions/workflows/ci.yml)
@@ -15,13 +13,11 @@ An open-source desktop gateway for your own model APIs, account pools, and usage
 
 </div>
 
-![Cursor BYOK: your model APIs and account pools in Cursor](./assets/banners/cursor-byok/minimalist-en-1280x640.png)
-
 Connect OpenAI- and Anthropic-compatible APIs to Cursor, or use account plugins to discover models from services you already use. Manage the connections locally, keep multiple accounts, and inspect model calls and usage in one desktop app.
 
 **New in the 1.0.4 build:** WorkBuddy, Qoder China/Global, TeleAgent and Kiro plugins, with account pooling and credit queries. The shared account store also fixes concurrent login/refresh overwriting other accounts. See [requirements and validation scope](support/releases/v1.0.4.md).
 
-## Why use it?
+## Features
 
 - **Choose your model channel.** Configure endpoint, API key, model ID and request parameters with OpenAI Responses, Chat Completions or Anthropic Messages APIs.
 - **Keep multiple accounts.** Save separate identities, rotate ready accounts and check provider credits. An interrupted request switches accounts only before any output starts.
@@ -100,12 +96,10 @@ The gateway handles Cursor protocol adaptation, provider requests, tool-call coo
 
 ## Support and contributing
 
-If this helps your workflow, **[star this fork](https://github.com/bargino/cursor-byok)** to follow its development. Reproducible bug reports, setup feedback and pull requests are welcome.
+Reproducible bug reports, setup feedback and pull requests are welcome.
 
 - [Report a bug / request a feature](https://github.com/bargino/cursor-byok/issues)
 - [Maintenance, builds and regression scope](support/fork-maintenance.md)
-- [Public documentation and FAQ](https://bargino.github.io/cursor-byok/faq/)
-- [Share the project: images and copy](support/promotion/README.md)
 - [Upstream user guide](https://docs.leokun.cn) — historical guide; fork-specific features are documented here.
 
 This community fork is maintained by [bargino](https://github.com/bargino), based on [leookun/cursor-byok](https://github.com/leookun/cursor-byok), archived on October 20, 2026. Original contributor history and attribution are preserved. The original [roadmap](https://github.com/leookun/cursor-byok/discussions/32), [archived Issues](https://github.com/leookun/cursor-byok/issues), [Telegram](https://t.me/cursor_byok) and QQ groups (`1095916242`, `1094411438`, `1095918002`, `1094419321`) belong to the upstream community; use this fork's Issues for its support.
