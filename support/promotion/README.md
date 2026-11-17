@@ -2,6 +2,8 @@
 
 项目地址：[bargino/cursor-byok](https://github.com/bargino/cursor-byok)
 
+文档站：[中文介绍与安装](https://bargino.github.io/cursor-byok/zh/) · [English documentation](https://bargino.github.io/cursor-byok/)。对外介绍时可同时提供仓库与文档链接，让读者先核对功能和登录条件。
+
 一句话介绍：**把自己的模型 API 和账号接入 Cursor，在桌面管理多账号池、积分和调用用量。**
 
 English: **An open-source desktop gateway for using your own model APIs and account pools in Cursor.**

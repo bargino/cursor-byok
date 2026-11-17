@@ -6,7 +6,7 @@
 
 开源桌面模型网关：自定义 API、多账号池、积分查询与用量统计。
 
-[English](./README.md) · [下载安装](#下载安装) · [快速开始](#快速开始) · [账号插件](#账号插件) · [提交问题](https://github.com/bargino/cursor-byok/issues)
+[English](./README.md) · [文档站](https://bargino.github.io/cursor-byok/zh/) · [下载安装](#下载安装) · [快速开始](#快速开始) · [账号插件](#账号插件) · [提交问题](https://github.com/bargino/cursor-byok/issues)
 
 [![Release](https://img.shields.io/github/v/release/bargino/cursor-byok?style=flat-square)](https://github.com/bargino/cursor-byok/releases/latest)
 [![CI](https://github.com/bargino/cursor-byok/actions/workflows/ci.yml/badge.svg)](https://github.com/bargino/cursor-byok/actions/workflows/ci.yml)
@@ -242,6 +242,7 @@ make build-docker    # 构建 Docker 镜像
 
 - [本 fork 的 GitHub Issues](https://github.com/bargino/cursor-byok/issues)：问题、功能建议与账号插件反馈。
 - [维护与构建说明](support/fork-maintenance.md)：兼容范围、回归记录和源码构建。
+- [公开文档与常见问题](https://bargino.github.io/cursor-byok/zh/faq/)：安装、账号池、积分与模型配置说明。
 - [分享素材与文案](support/promotion/README.md)：中英文介绍、三套分享图与渠道说明。
 - [原上游使用指南](https://docs.leokun.cn/zh/docs)：历史安装文档，本 fork 新功能以仓库说明为准。
 

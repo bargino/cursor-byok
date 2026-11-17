@@ -6,7 +6,7 @@
 
 An open-source desktop gateway for your own model APIs, account pools, and usage tracking.
 
-[中文说明](./README-CN.md) · [Download](#download) · [Quick start](#quick-start) · [Account plugins](#account-plugins) · [Report an issue](https://github.com/bargino/cursor-byok/issues)
+[中文说明](./README-CN.md) · [Documentation](https://bargino.github.io/cursor-byok/) · [Download](#download) · [Quick start](#quick-start) · [Account plugins](#account-plugins) · [Report an issue](https://github.com/bargino/cursor-byok/issues)
 
 [![Release](https://img.shields.io/github/v/release/bargino/cursor-byok?style=flat-square)](https://github.com/bargino/cursor-byok/releases/latest)
 [![CI](https://github.com/bargino/cursor-byok/actions/workflows/ci.yml/badge.svg)](https://github.com/bargino/cursor-byok/actions/workflows/ci.yml)
@@ -104,6 +104,7 @@ If this helps your workflow, **[star this fork](https://github.com/bargino/curso
 
 - [Report a bug / request a feature](https://github.com/bargino/cursor-byok/issues)
 - [Maintenance, builds and regression scope](support/fork-maintenance.md)
+- [Public documentation and FAQ](https://bargino.github.io/cursor-byok/faq/)
 - [Share the project: images and copy](support/promotion/README.md)
 - [Upstream user guide](https://docs.leokun.cn) — historical guide; fork-specific features are documented here.
 

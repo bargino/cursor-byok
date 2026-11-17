@@ -1,0 +1,40 @@
+{
+  "name": "Cursor BYOK",
+  "siteUrl": "https://bargino.github.io/cursor-byok/",
+  "repository": "https://github.com/bargino/cursor-byok",
+  "maintainer": "bargino",
+  "upstream": "https://github.com/leookun/cursor-byok",
+  "reviewedAt": "2026-11-17",
+  "buildVersion": "1.0.4",
+  "publishedRelease": "1.0.3",
+  "buildExpiresAt": "2026-12-16",
+  "liveAccountValidation": "pending",
+  "platforms": [
+    {
+      "name": "Windows x64",
+      "packages": "EXE / MSI / ZIP",
+      "url": "https://github.com/bargino/cursor-byok/actions/runs/43882978067/artifacts/14234715652"
+    },
+    {
+      "name": "macOS Apple Silicon",
+      "packages": "ARM64 DMG",
+      "url": "https://github.com/bargino/cursor-byok/actions/runs/43887113282/artifacts/14237991128"
+    },
+    {
+      "name": "macOS Intel",
+      "packages": "x64 DMG",
+      "url": "https://github.com/bargino/cursor-byok/actions/runs/43882978067/artifacts/14234398951"
+    },
+    {
+      "name": "Linux x64",
+      "packages": "AppImage / DEB / RPM",
+      "url": "https://github.com/bargino/cursor-byok/actions/runs/43882978067/artifacts/14233629111"
+    }
+  ],
+  "providers": [
+    { "id": "workbuddy", "name": "WorkBuddy", "plugin": "workbuddy-auth" },
+    { "id": "qoder", "name": "Qoder", "plugin": "qoder-auth" },
+    { "id": "teleagent", "name": "TeleAgent", "plugin": "teleagent-auth" },
+    { "id": "kiro", "name": "Kiro", "plugin": "kiro-auth" }
+  ]
+}
