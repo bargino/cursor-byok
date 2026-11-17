@@ -24,10 +24,11 @@ site/
 ├── project.json  # 版本、平台下载链接、项目身份和资料核对日期
 ├── content.mjs   # 中英文可见内容，含每种语言的 12 个 FAQ
 ├── build.mjs     # 生成静态 HTML、元数据、Sitemap 和项目资料文件
+├── publish.mjs   # 预览或发布静态成品到 gh-pages，隔离 Git 暂存区
 ├── styles.css    # 响应式样式与键盘焦点状态
 ├── check.py      # 内链、元数据、结构化数据与在线抓取检查
 └── dist/         # 被 Git 忽略的部署产物
-.github/workflows/site.yml  # 构建、验证并发布 GitHub Pages
+.github/workflows/site.yml  # GitHub Actions 可用时执行构建与验证
 support/geo/
 ├── README.md          # 实施说明、验证方法和维护边界
 └── query-checks.csv   # 需要实际复查的搜索问题与判断标准
@@ -35,7 +36,9 @@ support/geo/
 
 发布新版本时，更新 `project.json` 的已发布版本、构建版本、下载链接和有效期，并核对 `content.mjs` 中的版本说明。生成器会检查构建版本是否与桌面应用版本一致。核对过正文后再更新 `reviewedAt`，不通过每次构建刷新日期制造内容更新。
 
-GitHub Actions 的部署任务只在本仓库的 main 上运行；Pull Request 只构建和检查。构建不安装额外 npm 包。
+站点使用 GitHub Pages 的分支发布：`gh-pages` 根目录包含静态成品，`.nojekyll` 关闭 Jekyll 处理。构建不安装额外 npm 包。
+
+本次 GitHub Actions 的仓库开关返回 `enabled: true`，但工作流触发返回 HTTP 422 `Actions has been disabled for this repository.`。该状态未在本次任务中解除；[GitHub 官方说明](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/enabling-features-for-your-repository/managing-github-actions-settings-for-a-repository)要求联系 Support 审核。现有站点通过标准静态分支发布上线，未依赖该工作流执行。
 
 ## 技术验证
 
@@ -47,9 +50,21 @@ python site/check.py
 python site/check.py --live
 ```
 
+更新并提交源码到 main 后，先查看成品差异，再发布：
+
+```sh
+node site/publish.mjs
+node site/publish.mjs --push
+python site/check.py --live
+```
+
+发布脚本重新构建和检查，只提交生成的静态文件。它使用独立临时 Git index，不切换工作分支或覆盖现有暂存区；推送不使用 force。成品未变化时跳过重复发布。站点版本的提交信息记录对应 main 源码 SHA。
+
 本地检查覆盖 8 个页面、24 个可见 FAQ 答案、页面语言、内链锚点、独立摘要、JSON-LD、canonical、hreflang 和真实 404 页面配置。在线模式另外验证部署 URL、资产、HTTP 404 和域名根目录的 robots 规则。
 
 浏览器检查已在 375、768、1024、1440 四种宽度下覆盖 8 页，共 32 种组合，未发现横向溢出；另目视检查了桌面、平板和手机页面。没有运行或宣称 Lighthouse 评分。
+
+2026-11-17 已完成在线检查：8 页均为 HTTP 200；CSS、图片、Sitemap、JSON 和 llms.txt 可访问；缺失页面返回 HTTP 404；域名根目录 robots 规则允许 Googlebot、bingbot 与 OAI-SearchBot 抓取这些页面。
 
 ## 抓取与收录的边界
 
