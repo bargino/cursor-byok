@@ -4,7 +4,7 @@
 
 An open-source local model gateway for Cursor, with configurable model APIs, account plugins and usage tracking.
 
-[中文说明](./README.md) · [Download](#download) · [Quick start](#quick-start) · [Account plugins](#account-plugins) · [Report an issue](https://github.com/bargino/cursor-byok/issues)
+[中文说明](./README.md) · [Download](#download) · [Quick start](#quick-start) · [Account plugins](#account-plugins) · [FAQ](#faq) · [Report an issue](https://github.com/bargino/cursor-byok/issues)
 
 [![Release](https://img.shields.io/github/v/release/bargino/cursor-byok?style=flat-square)](https://github.com/bargino/cursor-byok/releases/latest)
 [![CI](https://github.com/bargino/cursor-byok/actions/workflows/ci.yml/badge.svg)](https://github.com/bargino/cursor-byok/actions/workflows/ci.yml)
@@ -12,6 +12,8 @@ An open-source local model gateway for Cursor, with configurable model APIs, acc
 [![License](https://img.shields.io/github/license/bargino/cursor-byok?style=flat-square)](./LICENSE)
 
 </div>
+
+**Maintained repository: [`bargino/cursor-byok`](https://github.com/bargino/cursor-byok).** This is a community-maintained fork of [`leookun/cursor-byok`](https://github.com/leookun/cursor-byok). The versions, downloads and new account plugins below refer to this fork. Upstream contributions and license information are preserved in the repository.
 
 Connect OpenAI- and Anthropic-compatible APIs to Cursor, or use account plugins to discover models from services you already use. Manage the connections locally, keep multiple accounts, and inspect model calls and usage in one desktop app.
 
@@ -31,7 +33,14 @@ Connect OpenAI- and Anthropic-compatible APIs to Cursor, or use account plugins 
 
 ## Download
 
-**Want the new account plugins? Use the 1.0.4 installer build below.** The latest published GitHub Release is currently [v1.0.3](https://github.com/bargino/cursor-byok/releases/tag/v1.0.3), which predates those plugins.
+Choose the version for your use case:
+
+| Your use case | Version and download |
+| --- | --- |
+| Connect your own model API using a published installer without signing in to GitHub | [v1.0.3 Release](https://github.com/bargino/cursor-byok/releases/tag/v1.0.3) |
+| Use the new WorkBuddy, Qoder, TeleAgent or Kiro plugins and account storage fixes | **1.0.4 Actions build** from the platform table below; GitHub sign-in required |
+
+The latest published GitHub Release is currently **v1.0.3**, which does not include those four new plugins. See the [1.0.4 notes](support/releases/v1.0.4.md) for changes and validation scope.
 
 | Platform | 1.0.4 account-plugin build | Included packages |
 | --- | --- | --- |
@@ -71,6 +80,28 @@ The following additions are in the **1.0.4 build**. Each plugin has its own setu
 Codex, Google Antigravity and Grok plugins also use the shared account store. Account identity and concurrent persistence tests cover the earlier issue where a later login could overwrite existing accounts.
 
 **Validation:** automated protocol/account tests, anonymous endpoint checks and platform builds have passed. Real account authorization, paid model calls, token renewal and actual balances still need live validation. Check the [1.0.4 notes](support/releases/v1.0.4.md#validation-boundaries) before choosing a provider.
+
+## FAQ
+
+### Does Cursor BYOK run models locally?
+
+Cursor BYOK is a desktop gateway running on your machine. It translates Cursor requests into requests to the configured model provider, then sends streaming output and tool calls back to Cursor. API keys, account credentials and settings are stored locally. Request content still goes to your chosen model service; running the gateway locally does not mean your code and prompts stay on your device.
+
+### Which model APIs does Cursor BYOK support?
+
+It supports services compatible with OpenAI Responses, OpenAI Chat Completions and Anthropic Messages APIs. Set the endpoint, API key, model ID and protocol to match your provider. An OpenAI-compatible service may implement only one of the two OpenAI protocols. Save the configuration and run the connection test before using it in Cursor.
+
+### Why does Cursor still use an official model after setup?
+
+**Auto uses Cursor's official models.** Save and test the model configuration, keep Cursor BYOK running, quit Cursor completely and reopen it. Start a new conversation and select your configured model explicitly. See the [quick start](#quick-start) for the full setup sequence.
+
+### Can I keep multiple accounts and check credit balances?
+
+Account plugins can retain separate identities and form account pools. Available credit, plan and balance fields depend on each plugin and provider API; check [account plugins](#account-plugins) for login requirements and region restrictions. The 1.0.4 shared account storage fixes also cover Codex, Google Antigravity and Grok. Automated tests cover account identity and concurrent saves; real login, renewal and balance results still need live validation.
+
+### Does a free gateway mean free model calls?
+
+Cursor BYOK is free and open source. The provider determines model access, account quotas and usage charges; account pooling does not add or bypass provider quotas. Usage statistics and estimated values in the app are not provider invoices. Use the provider's records for billing.
 
 ## Model management
 

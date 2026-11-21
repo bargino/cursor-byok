@@ -4,7 +4,7 @@
 
 运行在本机的开源 Cursor 模型网关，支持自定义模型 API、账号池、积分查询与用量统计。
 
-[English](./README-EN.md) · [下载安装](#下载安装) · [快速开始](#快速开始) · [账号插件](#账号插件) · [提交问题](https://github.com/bargino/cursor-byok/issues)
+[English](./README-EN.md) · [下载安装](#下载安装) · [快速开始](#快速开始) · [账号插件](#账号插件) · [常见问题](#常见问题) · [提交问题](https://github.com/bargino/cursor-byok/issues)
 
 [![Release](https://img.shields.io/github/v/release/bargino/cursor-byok?style=flat-square)](https://github.com/bargino/cursor-byok/releases/latest)
 [![CI](https://github.com/bargino/cursor-byok/actions/workflows/ci.yml/badge.svg)](https://github.com/bargino/cursor-byok/actions/workflows/ci.yml)
@@ -12,6 +12,8 @@
 [![License](https://img.shields.io/github/license/bargino/cursor-byok?style=flat-square)](./LICENSE)
 
 </div>
+
+**维护仓库：[`bargino/cursor-byok`](https://github.com/bargino/cursor-byok)。** 这是基于 [`leookun/cursor-byok`](https://github.com/leookun/cursor-byok) 的社区维护分支。下文的版本、下载链接和新增账号插件均指本分支；原上游的贡献与许可信息保留在仓库中。
 
 在 Cursor 中使用自己配置的 OpenAI / Anthropic 兼容服务，或通过账号插件接入已有服务的模型。在一个桌面应用里管理模型连接、多个账号和调用记录。
 
@@ -31,7 +33,14 @@
 
 ## 下载安装
 
-**需要新增账号插件，请下载下面的 1.0.4 安装包构建。** 当前已发布的 GitHub Release 为 [v1.0.3](https://github.com/bargino/cursor-byok/releases/tag/v1.0.3)，不含这四个新增插件。
+先按需要选择版本：
+
+| 你的需求 | 版本与下载方式 |
+| --- | --- |
+| 配置自己的模型 API，使用无需登录 GitHub 的正式发布包 | [v1.0.3 Release](https://github.com/bargino/cursor-byok/releases/tag/v1.0.3) |
+| 使用新增的 WorkBuddy、Qoder、TeleAgent、Kiro 插件及账号存储修复 | **1.0.4 Actions 构建**，按下表下载；需要登录 GitHub |
+
+当前已发布的 GitHub Release 为 **v1.0.3**，不含这四个新增插件。1.0.4 的变更与验证范围见 [版本说明](support/releases/v1.0.4.md)。
 
 | 系统 | 1.0.4 账号插件构建 | 包含文件 |
 | --- | --- | --- |
@@ -71,6 +80,28 @@ API Key 和账号凭据保存在本机；模型请求仍发送到对应服务商
 现有 Codex、Google Antigravity 和 Grok 插件也使用统一账号存储。账号身份和并发持久化测试覆盖了“后登录的账号覆盖先前账号”的问题。
 
 **验证范围：**已通过协议/账号自动化测试、匿名端点检查和各平台构建；真实账号授权、付费模型调用、续期与实际余额仍待实号验证。详情见 [1.0.4 验证记录](support/releases/v1.0.4.md#validation-boundaries)。
+
+## 常见问题
+
+### Cursor BYOK 会在本地运行大模型吗？
+
+Cursor BYOK 是运行在本机的桌面网关。它将 Cursor 请求转换为所配置服务商的模型 API 请求，再把流式输出和工具调用传回 Cursor。API Key、账号凭据和设置保存在本机；请求内容仍会发送到你选择的模型服务，不能据此认为代码或提示词始终留在本地。
+
+### Cursor BYOK 支持哪些模型接口？
+
+支持 OpenAI Responses API、OpenAI Chat Completions API 和 Anthropic Messages API 兼容服务。请按服务商实际开放的接口填写地址、API Key、模型 ID 与协议；“兼容 OpenAI”不代表服务商同时实现这两种 OpenAI 协议。字段说明见[模型配置](#模型配置)。
+
+### 配置完成后，为什么 Cursor 仍使用官方模型？
+
+**Auto 使用 Cursor 官方模型。** 请在模型设置中保存并通过连接测试，保持 Cursor BYOK 运行，完全退出并重新打开 Cursor，新开对话后手动选择配置的模型。完整操作见[快速开始](#快速开始)。
+
+### 可以同时登录多个账号并查询积分余额吗？
+
+账号插件可以保存多个身份并组成账号池；积分、套餐和余额字段由各插件及服务商接口决定。新增插件、登录条件和区域限制见[账号插件](#账号插件)。1.0.4 还包含 Codex、Google Antigravity 和 Grok 的统一账号存储修复；自动化测试覆盖多账号身份和并发保存，真实登录、续期及余额结果仍需实号验证。
+
+### Cursor BYOK 免费，模型调用也免费吗？
+
+Cursor BYOK 免费开源。模型访问权限、账号额度和调用费用由对应服务商决定；账号池不会增加或绕过服务商额度。界面的用量与估算价值不等于服务商账单，计费请以服务商记录为准。
 
 ## 模型配置
 
