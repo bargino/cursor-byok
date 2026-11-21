@@ -5,6 +5,7 @@ import { CursorCaGate, CursorCaProvider, CursorModelGate, CursorModelProvider } 
 import { CursorModelCards, cursorModelGroups, type CursorModelGroup, type CursorModelGrouping } from "./CursorModelCards";
 import { CursorModelEditor, emptyCursorModelDraft, type CursorModelDraft } from "./CursorModelEditor";
 import { CursorModelTestResult, type CursorModelTestState } from "./CursorModelTestResult";
+import { ImageModelTestDialog } from "./ImageModelTestDialog";
 import styles from "./CursorSettings.module.scss";
 import { PageContent } from "../../shell/layout/PageContent";
 import { LegacyModelImport } from "./LegacyModelImport";
@@ -35,6 +36,7 @@ export function CursorSettingsPage() {
   const [confirmDisableTakeover, setConfirmDisableTakeover] = useState(false);
   const [testingModelHashes, setTestingModelHashes] = useState<Set<string>>(() => new Set());
   const [modelTestResults, setModelTestResults] = useState<Map<string, CursorModelTestState>>(() => new Map());
+  const [imageTestModel, setImageTestModel] = useState<Model | null>(null);
   const [savingAndTesting, setSavingAndTesting] = useState(false);
   const [batchTesting, setBatchTesting] = useState(false);
   const [grouping, setGrouping] = useState<CursorModelGrouping>("flat");
@@ -109,10 +111,22 @@ export function CursorSettingsPage() {
       setDiscovering(false);
     }
   };
+  const clearModelTest = (hash: string) => {
+    setModelTestResults((current) => {
+      if (!current.has(hash)) return current;
+      const next = new Map(current);
+      next.delete(hash);
+      return next;
+    });
+  };
   const persist = async (): Promise<Model | null> => {
     if (!draft) return null;
     const input = draftInput(draft);
-    if (editing) return appStore.updateCursorModel(editing.model_hash, input);
+    if (editing) {
+      const updated = await appStore.updateCursorModel(editing.model_hash, input);
+      if (updated) clearModelTest(editing.model_hash);
+      return updated;
+    }
     return (await appStore.createModels([input]))?.[0] ?? null;
   };
   const save = async () => {
@@ -139,7 +153,7 @@ export function CursorSettingsPage() {
   const cancelAllModelTests = async () => {
     await Promise.all([...activeModelTests.current.keys()].map((modelHash) => cancelModelTest(modelHash)));
   };
-  const testModel = async (model: { model_hash: string; display_name: string }, notify = true): Promise<"success" | "failure" | "cancelled"> => {
+  const testModel = async (model: { model_hash: string; display_name: string }, notify = true, prompt?: string): Promise<"success" | "failure" | "cancelled"> => {
     if (activeModelTests.current.has(model.model_hash)) {
       await cancelModelTest(model.model_hash);
       return "cancelled";
@@ -148,17 +162,17 @@ export function CursorSettingsPage() {
     activeModelTests.current.set(model.model_hash, active);
     setTestingModelHashes((current) => new Set(current).add(model.model_hash));
     try {
-      const result = await api.testModel(model.model_hash, active.testId, active.controller.signal);
-      setModelTestResults((current) => new Map(current).set(model.model_hash, { status: "success", result }));
+      const result = await api.testModel(model.model_hash, active.testId, active.controller.signal, prompt);
+      setModelTestResults((current) => new Map(current).set(model.model_hash, { status: "success", result, prompt }));
       if (notify) message(t("模型 {model} 连通性测试成功（{duration} ms）", { model: model.display_name, duration: result.duration_ms }));
       return "success";
     } catch (cause) {
       if (active.cancelling || active.controller.signal.aborted) {
-        setModelTestResults((current) => new Map(current).set(model.model_hash, { status: "cancelled" }));
+        setModelTestResults((current) => new Map(current).set(model.model_hash, { status: "cancelled", prompt }));
         return "cancelled";
       }
       const error = errorText(cause);
-      setModelTestResults((current) => new Map(current).set(model.model_hash, { status: "error", error }));
+      setModelTestResults((current) => new Map(current).set(model.model_hash, { status: "error", error, prompt }));
       if (notify) message(t("连通性测试失败：{error}", { error }), { duration: 5000 });
       return "failure";
     } finally {
@@ -181,6 +195,12 @@ export function CursorSettingsPage() {
       setSavingAndTesting(false);
     }
     if (!saved) return;
+    if (isImageGenerationModel(saved)) {
+      setDraft(null);
+      setEditing(null);
+      setImageTestModel(saved);
+      return;
+    }
     setEditing(saved);
     await testModel(saved);
     await appStore.refresh();
@@ -243,6 +263,7 @@ export function CursorSettingsPage() {
           && input.base_url === model.base_url
           && input.api_key === model.api_key) continue;
         await api.updateModel(model.model_hash, input);
+        clearModelTest(model.model_hash);
       }
       await appStore.refresh();
       setSettingsGroup(null);
@@ -265,7 +286,10 @@ export function CursorSettingsPage() {
     disabled={cursorBusy}
     testingModelHashes={testingModelHashes}
     testResults={modelTestResults}
-    onTest={(model) => void testModel(model)}
+    onTest={(model) => {
+      if (isImageGenerationModel(model) && !activeModelTests.current.has(model.model_hash)) setImageTestModel(model);
+      else void testModel(model);
+    }}
     onEdit={openEdit}
     onDuplicate={(model) => void duplicateModel(model)}
     onDelete={setDeleting}
@@ -292,7 +316,7 @@ export function CursorSettingsPage() {
     </div>
   </CursorCaGate></CursorCaProvider>;
 
-  const editorSupportsTest = draft && !isImageGenerationModel(draft.model);
+  const editingImage = draft && isImageGenerationModel(draft.model);
   const editorTestState = editing ? modelTestResults.get(editing.model_hash) : undefined;
   const editorTesting = Boolean(editing && testingModelHashes.has(editing.model_hash));
   const activeGroups = grouping === "provider" ? providerGroups : typeGroups;
@@ -320,7 +344,7 @@ export function CursorSettingsPage() {
           <button type="button" aria-pressed={grouping === "flat"} onClick={() => setGrouping("flat")}>{t("默认平铺")}</button>
           {canGroupByProvider && <button type="button" aria-pressed={grouping === "provider"} onClick={() => setGrouping("provider")}>{t("按供应商")}</button>}
           {canGroupByType && <button type="button" aria-pressed={grouping === "type"} onClick={() => setGrouping("type")}>{t("按类型")}</button>}
-          {testTargets.length > 0 && <button type="button" disabled={cursorBusy || (!batchTesting && testingModelHashes.size > 0)} onClick={() => void (batchTesting ? cancelAllModelTests() : testAllModels())}>{batchTesting ? t("取消全部测试") : t("一键测试")}</button>}
+          {testTargets.length > 0 && <button type="button" disabled={cursorBusy || (!batchTesting && testingModelHashes.size > 0)} onClick={() => void (batchTesting ? cancelAllModelTests() : testAllModels())}>{batchTesting ? t("取消全部测试") : models.some(isImageGenerationModel) ? t("测试全部聊天模型") : t("一键测试")}</button>}
         </div>}
       </div>
     </PageActions>
@@ -339,11 +363,23 @@ export function CursorSettingsPage() {
     >
       <p>{t("关闭后将移除 Cursor 本地代理配置。如果你需要登陆官方账号，通常不需要关闭操作，推荐直接登陆你的账号即可(byok模型与官方账号的模型已支持无缝衔接)，是否继续关闭并清理代理？")}</p>
     </ConfirmDialog>
-    <Modal fullHeight open={draft !== null} title={editing ? t("编辑模型") : t("添加模型")} banner={editorSupportsTest && (editorTesting || editorTestState) ? <CursorModelTestResult state={editorTestState} testing={editorTesting} /> : undefined} busy={cursorBusy || savingAndTesting} onClose={() => { if (editing && editorTesting) void cancelModelTest(editing.model_hash); setDraft(null); setEditing(null); }} onSubmit={() => void save()} submitLabel={t("保存")} secondaryAction={editorSupportsTest && <button type="button" className={controls.secondary} disabled={cursorBusy || savingAndTesting} onClick={() => void (editorTesting && editing ? cancelModelTest(editing.model_hash) : saveAndTest())}>{savingAndTesting ? t("处理中…") : editorTesting ? t("取消测试") : t("保存并测试")}</button>}>
+    <Modal fullHeight open={draft !== null} title={editing ? t("编辑模型") : t("添加模型")} banner={(editorTesting || editorTestState) ? <CursorModelTestResult state={editorTestState} testing={editorTesting} /> : undefined} busy={cursorBusy || savingAndTesting} onClose={() => { if (editing && editorTesting) void cancelModelTest(editing.model_hash); setDraft(null); setEditing(null); }} onSubmit={() => void save()} submitLabel={t("保存")} secondaryAction={<button type="button" className={controls.secondary} disabled={cursorBusy || savingAndTesting} onClick={() => void (editorTesting && editing ? cancelModelTest(editing.model_hash) : saveAndTest())}>{savingAndTesting ? t("处理中…") : editorTesting ? t("取消测试") : editingImage ? t("保存并打开生图测试") : t("保存并测试")}</button>}>
       {draft && <>
         <CursorModelEditor draft={draft} modelOptions={modelOptions} discovering={discovering} onChange={setDraft} onDiscover={discover} />
       </>}
     </Modal>
+    {imageTestModel && <ImageModelTestDialog
+      key={imageTestModel.model_hash}
+      name={imageTestModel.display_name}
+      state={modelTestResults.get(imageTestModel.model_hash)}
+      testing={testingModelHashes.has(imageTestModel.model_hash)}
+      onTest={(prompt) => void testModel(imageTestModel, false, prompt)}
+      onCancel={() => void cancelModelTest(imageTestModel.model_hash)}
+      onClose={() => {
+        void cancelModelTest(imageTestModel.model_hash);
+        setImageTestModel(null);
+      }}
+    />}
     <ConfirmDialog open={caCommand !== null} title={t("安装本地 CA")} cancelLabel={t("关闭")} confirmLabel={t("打开终端")} onCancel={() => setCaCommand(null)} onConfirm={openCaTerminal}>
       <div className={styles.editor}><strong>{t("需要授权安装证书")}</strong><span>{t("安装命令已自动复制。点击“打开终端”，将命令粘贴到终端中执行，并按提示输入密码。")}</span><pre className={styles.command}>{caCommand}</pre></div>
     </ConfirmDialog>
@@ -360,7 +396,13 @@ export function CursorSettingsPage() {
         </FormField>
       </div>}
     </Modal>
-    <ConfirmDialog open={deleting !== null} title={t("删除模型")} cancelLabel={t("取消")} confirmLabel={t("删除")} onCancel={() => setDeleting(null)} onConfirm={() => { if (deleting) void appStore.deleteModel(deleting.model_hash); setDeleting(null); }}><p>{t("确定删除这个模型吗？")}</p></ConfirmDialog>
+    <ConfirmDialog open={deleting !== null} title={t("删除模型")} cancelLabel={t("取消")} confirmLabel={t("删除")} onCancel={() => setDeleting(null)} onConfirm={() => {
+      if (deleting) {
+        clearModelTest(deleting.model_hash);
+        void appStore.deleteModel(deleting.model_hash);
+      }
+      setDeleting(null);
+    }}><p>{t("确定删除这个模型吗？")}</p></ConfirmDialog>
   </>;
 }
 

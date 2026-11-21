@@ -143,6 +143,137 @@ async fn send(
 }
 
 #[tokio::test]
+async fn model_test_returns_a_validated_image_preview_or_chat_metrics() {
+    const PNG: &str = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNg+M/wHwAEAQH/cetH5QAAAABJRU5ErkJggg==";
+    let (router, provider, store, _directory) = setup().await;
+    let chat_model = store.models().await.unwrap().remove(0);
+    let (seen, mut requests) = tokio::sync::mpsc::unbounded_channel();
+    let upstream = Router::new().route(
+        "/v1/images/generations",
+        post(move |headers: HeaderMap, Json(body): Json<Value>| {
+            let seen = seen.clone();
+            async move {
+                let invalid = body["prompt"] == "bad image";
+                seen.send((headers, body)).unwrap();
+                Json(json!({"data":[{"b64_json": if invalid { "bm90IGFuIGltYWdl" } else { PNG }}]}))
+            }
+        }),
+    );
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let image_model = store
+        .create_model(&ModelConfigInput {
+            openai_endpoint: cursor_server::model::OPENAI_IMAGE_GENERATION_ENDPOINT.into(),
+            base_url: format!("http://{}/v1", listener.local_addr().unwrap()),
+            ..model_input()
+        })
+        .await
+        .unwrap();
+    let server = tokio::spawn(async move { axum::serve(listener, upstream).await.unwrap() });
+    let route = format!(
+        "/__byok-api__/api/models/{}/test/image-test",
+        image_model.model_hash
+    );
+    for input in [json!({"prompt":" Draw a pear. "}), json!({})] {
+        let (status, body) = send(router.clone(), "POST", &route, None, input.clone()).await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        let result: Value = serde_json::from_str(&body).unwrap();
+        assert_eq!(result["kind"], "image");
+        assert!(result["duration_ms"].is_u64());
+        assert_eq!(result["mime_type"], "image/png");
+        assert_eq!(result["data_base64"], PNG);
+        assert!(result.get("output_tokens").is_none());
+        let (headers, request) = requests.recv().await.unwrap();
+        assert_eq!(headers[header::AUTHORIZATION], "Bearer upstream");
+        assert_eq!(request["model"], image_model.model_id);
+        assert_eq!(request["n"], 1);
+        let prompt = request["prompt"].as_str().unwrap();
+        assert!(!prompt.is_empty());
+        if input.get("prompt").is_some() {
+            assert_eq!(prompt, "Draw a pear.");
+        }
+    }
+    let (status, body) = send(
+        router.clone(),
+        "POST",
+        &route,
+        None,
+        json!({"prompt":"bad image"}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_GATEWAY, "{body}");
+    assert!(body.contains("unrecognized image data"));
+    server.abort();
+
+    provider.push(vec![
+        ModelEvent::TextDelta("ok".into()),
+        ModelEvent::Done(FinishReason::Stop),
+    ]);
+    let route = format!(
+        "/__byok-api__/api/models/{}/test/chat-test",
+        chat_model.model_hash
+    );
+    let response = router
+        .oneshot(Request::post(route).body(Body::empty()).unwrap())
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let bytes = to_bytes(response.into_body(), 8192).await.unwrap();
+    let result: Value = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(result["kind"], "chat");
+    assert_eq!(result["output"], "ok");
+    assert!(result["output_tokens"].as_u64().unwrap() > 0);
+    assert!(result.get("data_base64").is_none());
+}
+
+#[tokio::test]
+async fn model_test_can_cancel_pending_image_generation() {
+    let (router, _provider, store, _directory) = setup().await;
+    let ready = Arc::new(tokio::sync::Notify::new());
+    let started = ready.clone();
+    let upstream = Router::new().route(
+        "/v1/images/generations",
+        post(move || {
+            let started = started.clone();
+            async move {
+                started.notify_one();
+                std::future::pending::<StatusCode>().await
+            }
+        }),
+    );
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let image_model = store
+        .create_model(&ModelConfigInput {
+            openai_endpoint: cursor_server::model::OPENAI_IMAGE_GENERATION_ENDPOINT.into(),
+            base_url: format!("http://{}/v1", listener.local_addr().unwrap()),
+            ..model_input()
+        })
+        .await
+        .unwrap();
+    let server = tokio::spawn(async move { axum::serve(listener, upstream).await.unwrap() });
+    let route = format!(
+        "/__byok-api__/api/models/{}/test/cancel-image",
+        image_model.model_hash
+    );
+    let pending = tokio::spawn(
+        router
+            .clone()
+            .oneshot(Request::post(&route).body(Body::empty()).unwrap()),
+    );
+    tokio::time::timeout(Duration::from_secs(5), ready.notified())
+        .await
+        .unwrap();
+    let (status, _) = send(router, "DELETE", &route, None, json!({})).await;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+    let response = tokio::time::timeout(Duration::from_secs(5), pending)
+        .await
+        .unwrap()
+        .unwrap()
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::CONFLICT);
+    server.abort();
+}
+
+#[tokio::test]
 async fn disabled_and_unauthorized_requests_cannot_list_models() {
     let (router, _provider, store, _directory) = setup().await;
     assert_eq!(

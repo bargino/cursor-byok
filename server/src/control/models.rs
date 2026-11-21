@@ -26,6 +26,11 @@ pub struct ModelOrder {
     pub model_hashes: Vec<String>,
 }
 
+#[derive(Deserialize)]
+pub struct ModelTestInput {
+    pub prompt: Option<String>,
+}
+
 pub async fn list(State(service): State<ControlService>) -> Result<Json<Vec<ModelConfig>>> {
     Ok(Json(service.models().await?))
 }
@@ -66,8 +71,14 @@ pub async fn update(
 pub async fn test(
     State(service): State<ControlService>,
     Path((model_hash, test_id)): Path<(String, String)>,
+    input: Option<Json<ModelTestInput>>,
 ) -> Result<Json<ModelConnectivityResult>> {
-    Ok(Json(service.test_model(&model_hash, &test_id).await?))
+    let prompt = input.and_then(|Json(input)| input.prompt);
+    Ok(Json(
+        service
+            .test_model(&model_hash, &test_id, prompt.as_deref())
+            .await?,
+    ))
 }
 
 pub async fn cancel(

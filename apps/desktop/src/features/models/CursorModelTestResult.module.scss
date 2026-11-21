@@ -1,5 +1,33 @@
 @use "../../styles/typography" as type;
 
+.imageTest,
+.imagePreview {
+  display: grid;
+  gap: 10px;
+}
+
+.imageTest {
+  font-size: type.$font-size-xs;
+}
+
+.imageError {
+  color: var(--vscode-errorForeground);
+  overflow-wrap: anywhere;
+}
+
+.imagePreview {
+  margin: 0;
+  color: var(--vscode-descriptionForeground);
+
+  img {
+    display: block;
+    max-width: 100%;
+    max-height: 45vh;
+    margin: 0 auto;
+    object-fit: contain;
+  }
+}
+
 .root {
   min-width: 0;
   width: 100%;

@@ -99,13 +99,21 @@ fn empty_json_object_ref() -> &'static serde_json::Value {
 }
 
 #[derive(Clone, Debug, Serialize)]
-pub struct ModelConnectivityResult {
-    pub duration_ms: u64,
-    pub first_valid_response_ms: Option<u64>,
-    pub output_tokens: u64,
-    pub tokens_per_second: f64,
-    pub tokens_estimated: bool,
-    pub output: String,
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum ModelConnectivityResult {
+    Chat {
+        duration_ms: u64,
+        first_valid_response_ms: Option<u64>,
+        output_tokens: u64,
+        tokens_per_second: f64,
+        tokens_estimated: bool,
+        output: String,
+    },
+    Image {
+        duration_ms: u64,
+        mime_type: &'static str,
+        data_base64: String,
+    },
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -389,6 +397,7 @@ impl ControlService {
         &self,
         model_hash: &str,
         test_id: &str,
+        prompt: Option<&str>,
     ) -> Result<ModelConnectivityResult> {
         let cancellation = CancellationToken::new();
         let cancellation = {
@@ -401,7 +410,7 @@ impl ControlService {
                 .or_insert_with(|| cancellation.clone())
                 .clone()
         };
-        let result = self.run_model_test(model_hash, cancellation).await;
+        let result = self.run_model_test(model_hash, prompt, cancellation).await;
         self.model_tests
             .lock()
             .expect("model test registry mutex poisoned")
@@ -423,11 +432,13 @@ impl ControlService {
     async fn run_model_test(
         &self,
         model_hash: &str,
+        prompt: Option<&str>,
         cancellation: CancellationToken,
     ) -> Result<ModelConnectivityResult> {
         const TEST_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(45);
         const TEST_PROMPT: &str = "Output the numbers 1 through 120 separated by a single space. No commas, no newlines, no explanation.";
 
+        let call_id = format!("model-test-{}", uuid::Uuid::new_v4());
         let mut model = ModelSpec::new(model_hash);
         if model_hash.starts_with(crate::plugin::ADAPTER_ID_PREFIX) {
             let descriptor = self.plugins.model_descriptor(model_hash).await?;
@@ -436,13 +447,29 @@ impl ControlService {
         } else {
             let configured = self
                 .store
-                .chat_model(model_hash)
+                .model(model_hash)
                 .await?
                 .ok_or_else(|| Error::RunNotFound(format!("model {model_hash}")))?;
+            if configured.is_image_generation() {
+                const DEFAULT_PROMPT: &str = "A red apple on a plain white background.";
+                let prompt = prompt.map(str::trim).filter(|text| !text.is_empty());
+                let started = Instant::now();
+                let image = tokio::select! {
+                    biased;
+                    () = cancellation.cancelled() => return Err(Error::Cancelled),
+                    image = crate::provider::image_generation::generate(
+                        &self.store, &configured, &call_id, prompt.unwrap_or(DEFAULT_PROMPT), None,
+                    ) => image?,
+                };
+                return Ok(ModelConnectivityResult::Image {
+                    duration_ms: started.elapsed().as_millis() as u64,
+                    mime_type: image.mime_type,
+                    data_base64: STANDARD.encode(image.data),
+                });
+            }
             configured.configure(&mut model);
             model.max_output_tokens = Some(configured.max_output_tokens().unwrap_or(65_536));
         }
-        let call_id = format!("model-test-{}", uuid::Uuid::new_v4());
         let invocation = ModelInvocation {
             call_id: call_id.clone(),
             run_id: call_id.clone(),
@@ -530,7 +557,7 @@ impl ControlService {
         }
         let tokens_estimated = output_tokens.is_none();
         let output_tokens = output_tokens.unwrap_or_else(|| estimate_output_tokens(&output));
-        Ok(ModelConnectivityResult {
+        Ok(ModelConnectivityResult::Chat {
             duration_ms: elapsed.as_millis().min(u128::from(u64::MAX)) as u64,
             first_valid_response_ms: first_valid_response_at.map(|first| {
                 first

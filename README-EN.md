@@ -72,6 +72,8 @@ Image generation is available in builds of the current source and runs in BYOK-m
 
 In **Cursor Configuration → Add model**, choose the **Image generation** category. Enter the display name, upstream model ID, API key, and service URL for an OpenAI-compatible Images API. BYOK appends `/v1/images/generations` to a base URL or uses a full request URL as entered. The endpoint can return `b64_json` or a same-origin image URL.
 
+To verify the configuration, open the image model’s test dialog, keep or edit the suggested prompt, and generate a test image. Each run requests one image from the configured provider and shows the preview and elapsed time. Your provider may charge for the request.
+
 Open a workspace, select a BYOK chat model, and ask Agent “Which image models are available?” To generate an image, try “Use Studio to generate an app icon,” substituting your saved display name. Requests without a model name use the first image model in your configured order. After approval, the image is saved in your workspace.
 
 ## Account plugins

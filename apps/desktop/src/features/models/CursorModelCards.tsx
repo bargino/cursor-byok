@@ -167,9 +167,9 @@ function ModelListRow({ model, disabled, testing, result, onTest, onEdit, onDupl
       <span className={styles.modelRowNameText}>{model.display_name}</span>
       <span className={styles.modelRowModelId}>{model.model_id}{imageGeneration && <> · {t("图片生成")}</>}</span>
     </div>
-    {!imageGeneration && <CursorModelTestResult compact state={result} testing={testing} />}
+    <CursorModelTestResult compact state={result} testing={testing} />
     <div className={styles.modelCardActions}>
-      {!imageGeneration && <TruncatedButton size="small" disabled={disabled && !testing} label={testing ? t("取消测试") : t("测试")} onClick={onTest} />}
+      <TruncatedButton size="small" disabled={disabled && !testing} label={testing ? t("取消测试") : imageGeneration ? t("测试生图") : t("测试")} onClick={onTest} />
       <TruncatedButton size="small" disabled={disabled} label={t("编辑")} onClick={onEdit} />
       <TruncatedButton size="small" disabled={disabled} label={t("复制")} onClick={onDuplicate} />
       <TruncatedButton size="small" className={styles.deleteButton} disabled={disabled} label={t("删除")} onClick={onDelete} />
@@ -281,10 +281,10 @@ function ModelGrid({
             </span>
           </div>
           <div className={styles.modelCardTest}>
-            {!imageGeneration && <CursorModelTestResult state={result} testing={testing} />}
+            <CursorModelTestResult state={result} testing={testing} />
           </div>
           <div className={styles.modelCardActions}>
-            {!imageGeneration && <TruncatedButton size="small" disabled={disabled && !testing} label={testing ? t("取消测试") : t("测试")} onClick={() => onTest(model)} />}
+            <TruncatedButton size="small" disabled={disabled && !testing} label={testing ? t("取消测试") : imageGeneration ? t("测试生图") : t("测试")} onClick={() => onTest(model)} />
             <TruncatedButton size="small" disabled={disabled} label={t("编辑")} onClick={() => onEdit(model)} />
             <TruncatedButton size="small" disabled={disabled} label={t("复制")} onClick={() => onDuplicate(model)} />
             <TruncatedButton size="small" className={styles.deleteButton} disabled={disabled} label={t("删除")} onClick={() => onDelete(model)} />

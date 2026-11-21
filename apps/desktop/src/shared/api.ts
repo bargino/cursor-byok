@@ -86,7 +86,8 @@ export interface LegacyModelImportResult {
   total: number;
 }
 
-export interface ModelConnectivityResult {
+interface ChatConnectivityResult {
+  kind: "chat";
   duration_ms: number;
   first_valid_response_ms: number | null;
   output_tokens: number;
@@ -94,6 +95,13 @@ export interface ModelConnectivityResult {
   tokens_estimated: boolean;
   output: string;
 }
+
+export type ModelConnectivityResult = ChatConnectivityResult | {
+  kind: "image";
+  duration_ms: number;
+  mime_type: string;
+  data_base64: string;
+};
 
 export type CaState = "missing" | "untrusted" | "ready" | "invalid";
 export type IntegrationState = "disabled" | "enabled" | "degraded";
@@ -495,7 +503,9 @@ export const api = {
   importV0049Models: () => request<LegacyModelImportResult>("/models/import-v0049", { method: "POST" }),
   updateModel: (hash: string, model: ModelInput) => request<Model>(`/models/${hash}`, { method: "PUT", body: JSON.stringify(model) }),
   deleteModel: (hash: string) => request<void>(`/models/${hash}`, { method: "DELETE" }),
-  testModel: (hash: string, testId: string, signal?: AbortSignal) => request<ModelConnectivityResult>(`/models/${encodeURIComponent(hash)}/test/${encodeURIComponent(testId)}`, { method: "POST", signal }),
+  testModel: (hash: string, testId: string, signal: AbortSignal, prompt?: string) => request<ModelConnectivityResult>(`/models/${encodeURIComponent(hash)}/test/${encodeURIComponent(testId)}`, {
+    method: "POST", signal, body: prompt === undefined ? undefined : JSON.stringify({ prompt }),
+  }),
   cancelModelTest: (hash: string, testId: string) => request<void>(`/models/${encodeURIComponent(hash)}/test/${encodeURIComponent(testId)}`, { method: "DELETE" }),
   overview: (filter?: { startMs: number; endMs: number; modelHashes?: string[]; bucketMs?: number }) => {
     const params = new URLSearchParams();

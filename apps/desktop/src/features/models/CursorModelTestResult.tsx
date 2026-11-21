@@ -4,10 +4,11 @@ import { TooltipTrigger } from "../../shared/ui/TooltipTrigger";
 import { informationOutlineIcon } from "../../shared/ui/icons";
 import styles from "./CursorModelTestResult.module.scss";
 
-export type CursorModelTestState =
+export type CursorModelTestState = { prompt?: string } & (
   | { status: "success"; result: ModelConnectivityResult }
   | { status: "error"; error: string }
-  | { status: "cancelled" };
+  | { status: "cancelled" }
+);
 
 export function CursorModelTestResult({ state, testing = false, compact = false }: {
   state?: CursorModelTestState;
@@ -30,35 +31,46 @@ export function CursorModelTestResult({ state, testing = false, compact = false 
   }
 
   const success = state.status === "success";
-  const summary = success
-    ? t("速度：{speed} tokens/s", { speed: formatSpeed(state.result.tokens_per_second) })
-    : t("错误：{error}", { error: state.error });
-  const detail = success
-    ? t("速度 {speed} tokens/s · 首字 {firstText} ms · 总耗时 {duration} ms · 输出 {tokens} tokens{estimated} · 返回：{output}", {
-      speed: formatSpeed(state.result.tokens_per_second),
-      firstText: state.result.first_valid_response_ms ?? "--",
-      duration: state.result.duration_ms,
-      tokens: state.result.output_tokens,
-      estimated: state.result.tokens_estimated ? t("（估算）") : "",
-      output: state.result.output || "--",
-    })
-    : t("测试失败：{error}", { error: state.error });
+  const labels = success ? successLabels(state.result) : {
+    summary: t("错误：{error}", { error: state.error }),
+    badge: t("测试失败"),
+    detail: t("测试失败：{error}", { error: state.error }),
+  };
 
   if (compact) {
-    return <TooltipTrigger label={detail}>
+    return <TooltipTrigger label={labels.detail}>
       <span className={`${styles.compact} ${success ? styles.success : styles.error}`}>
-        {success ? `${formatSpeed(state.result.tokens_per_second)} tokens/s` : t("测试失败")}
+        {labels.badge}
         <Icon icon={informationOutlineIcon} size="1em" />
       </span>
     </TooltipTrigger>;
   }
 
   return <div className={`${styles.root} ${success ? styles.success : styles.error}`}>
-    <span className={styles.summary}>{summary}</span>
-    <TooltipTrigger label={detail}><button type="button" className={styles.details}>{t("查看详情")}<Icon icon={informationOutlineIcon} size="1.1em" /></button></TooltipTrigger>
+    <span className={styles.summary}>{labels.summary}</span>
+    <TooltipTrigger label={labels.detail}><button type="button" className={styles.details}>{t("查看详情")}<Icon icon={informationOutlineIcon} size="1.1em" /></button></TooltipTrigger>
   </div>;
 }
 
-function formatSpeed(value: number) {
-  return Number.isFinite(value) ? value.toFixed(1) : "0.0";
+function successLabels(result: ModelConnectivityResult) {
+  if (result.kind === "image") {
+    return {
+      summary: t("图片已生成"),
+      badge: t("图片已生成"),
+      detail: t("图片已生成，耗时 {duration} ms", { duration: result.duration_ms }),
+    };
+  }
+  const speed = Number.isFinite(result.tokens_per_second) ? result.tokens_per_second.toFixed(1) : "0.0";
+  return {
+    summary: t("速度：{speed} tokens/s", { speed }),
+    badge: `${speed} tokens/s`,
+    detail: t("速度 {speed} tokens/s · 首字 {firstText} ms · 总耗时 {duration} ms · 输出 {tokens} tokens{estimated} · 返回：{output}", {
+      speed,
+      firstText: result.first_valid_response_ms ?? "--",
+      duration: result.duration_ms,
+      tokens: result.output_tokens,
+      estimated: result.tokens_estimated ? t("（估算）") : "",
+      output: result.output || "--",
+    }),
+  };
 }

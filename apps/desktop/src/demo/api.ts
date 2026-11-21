@@ -120,7 +120,7 @@ export function installDemoApi() {
     }
     if (path === "/models/import-v0049") return json({ imported: 0, skipped: 0, total: 0 });
     if (/^\/models\/[^/]+\/test\/[^/]+$/.test(path) && method === "POST") {
-      return json({ duration_ms: 1_284, first_valid_response_ms: 418, output_tokens: 42, tokens_per_second: 38.6, tokens_estimated: false, output: "Mock connectivity test passed." });
+      return json({ kind: "chat", duration_ms: 1_284, first_valid_response_ms: 418, output_tokens: 42, tokens_per_second: 38.6, tokens_estimated: false, output: "Mock connectivity test passed." });
     }
     if (/^\/models\/[^/]+\/test\/[^/]+$/.test(path) || /^\/models\/[^/]+$/.test(path)) {
       return method === "DELETE" ? empty() : json(models[0]);
