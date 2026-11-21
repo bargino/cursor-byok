@@ -17,7 +17,7 @@
 
 在 Cursor 中使用自己配置的 OpenAI / Anthropic 兼容服务，或通过账号插件接入已有服务的模型。在一个桌面应用里管理模型连接、多个账号和调用记录。
 
-**1.0.4 构建新增：**WorkBuddy、Qoder 国内/国际、TeleAgent（中国电信）和 Kiro 账号插件，支持账号池与积分查询；同时修复并发登录、刷新时覆盖其他账号的问题。登录条件和验证范围见 [1.0.4 说明](support/releases/v1.0.4.md)。
+**1.0.5 新增生图模型。** 在桌面端配置并测试图片生成 API 后，可以让 Cursor Agent 列出模型、按名称生成图片，并将图片保存到当前工作区。本版也包含 WorkBuddy、Qoder、TeleAgent 和 Kiro 账号插件。[查看版本说明](support/releases/v1.0.5.md)
 
 ## 主要功能
 
@@ -33,25 +33,16 @@
 
 ## 下载安装
 
-先按需要选择版本：
+[v1.0.5 正式版](https://github.com/bargino/cursor-byok/releases/tag/v1.0.5) 包含图片生成和账号插件，无需登录 GitHub 即可下载。
 
-| 你的需求 | 版本与下载方式 |
-| --- | --- |
-| 配置自己的模型 API，使用无需登录 GitHub 的正式发布包 | [v1.0.3 Release](https://github.com/bargino/cursor-byok/releases/tag/v1.0.3) |
-| 使用新增的 WorkBuddy、Qoder、TeleAgent、Kiro 插件及账号存储修复 | **1.0.4 Actions 构建**，按下表下载；需要登录 GitHub |
-
-当前已发布的 GitHub Release 为 **v1.0.3**，不含这四个新增插件。1.0.4 的变更与验证范围见 [版本说明](support/releases/v1.0.4.md)。
-
-| 系统 | 1.0.4 账号插件构建 | 包含文件 |
+| 系统 | 安装包 | 便携版或应用归档 |
 | --- | --- | --- |
-| Windows x64 | [下载构建 ZIP](https://github.com/bargino/cursor-byok/actions/runs/43882978067/artifacts/14234715652) | 安装 EXE、MSI、便携 ZIP |
-| macOS Apple Silicon | [下载构建 ZIP](https://github.com/bargino/cursor-byok/actions/runs/43887113282/artifacts/14237991128) | ARM64 DMG、应用归档 |
-| macOS Intel | [下载构建 ZIP](https://github.com/bargino/cursor-byok/actions/runs/43882978067/artifacts/14234398951) | x64 DMG、应用归档 |
-| Linux x64 | [下载构建 ZIP](https://github.com/bargino/cursor-byok/actions/runs/43882978067/artifacts/14233629111) | AppImage、DEB、RPM、二进制归档 |
+| Windows x64 | [EXE](https://github.com/bargino/cursor-byok/releases/download/v1.0.5/Cursor.BYOK_1.0.5_x64-setup.exe) · [MSI](https://github.com/bargino/cursor-byok/releases/download/v1.0.5/Cursor.BYOK_1.0.5_x64_en-US.msi) | [ZIP](https://github.com/bargino/cursor-byok/releases/download/v1.0.5/cursor-byok-1.0.5-windows-amd64.zip) |
+| macOS Apple Silicon | [ARM64 DMG](https://github.com/bargino/cursor-byok/releases/download/v1.0.5/Cursor.BYOK_1.0.5_aarch64.dmg) | [ARM64 .app.tar.gz](https://github.com/bargino/cursor-byok/releases/download/v1.0.5/Cursor.BYOK_1.0.5_aarch64.app.tar.gz) |
+| macOS Intel | [x64 DMG](https://github.com/bargino/cursor-byok/releases/download/v1.0.5/Cursor.BYOK_1.0.5_x64.dmg) | [x64 .app.tar.gz](https://github.com/bargino/cursor-byok/releases/download/v1.0.5/Cursor.BYOK_1.0.5_x64.app.tar.gz) |
+| Linux x64 | [DEB](https://github.com/bargino/cursor-byok/releases/download/v1.0.5/Cursor.BYOK_1.0.5_amd64.deb) · [RPM](https://github.com/bargino/cursor-byok/releases/download/v1.0.5/Cursor.BYOK-1.0.5-1.x86_64.rpm) | [AppImage](https://github.com/bargino/cursor-byok/releases/download/v1.0.5/Cursor.BYOK_1.0.5_amd64.AppImage) |
 
-以上为 GitHub Actions 构建产物：需要先**登录 GitHub**，下载外层 ZIP 并解压，再选择系统对应的安装包。四个构建产物预计于 **2026 年 12 月 16 日**过期，包含版本/提交信息及 SHA-256 校验文件；它们尚未发布为 1.0.4 Release，也未进入自动更新源。
-
-需要无需登录 GitHub 的正式发布包，可下载 [v1.0.3](https://github.com/bargino/cursor-byok/releases/tag/v1.0.3)。也可以按[源码构建说明](support/fork-maintenance.md#build-from-source)构建当前版本。macOS 包尚未经过 Apple 公证。
+发布页还提供 `SHA256SUMS.txt` 用于核对下载文件。macOS 包尚未经过 Apple 公证。也可以按[源码构建说明](support/fork-maintenance.md#build-from-source)自行构建。
 
 ## 快速开始
 
@@ -60,7 +51,7 @@
 1. 安装适合系统的版本，打开 **Cursor 配置**，按提示初始化本地 CA。
 2. 选择模型接入方式：
    - **API Key**：在 **模型设置** 中选择服务商和协议，填写服务地址、API Key 与模型 ID，保存并运行 **测试**。
-   - **账号插件（1.0.4）**：打开 **插件**，先初始化插件运行时，启用对应插件并 **添加账号**。完成授权后，在账号管理中启用需要的模型；重复添加可组成账号池。
+   - **账号插件**：打开 **插件**，先初始化插件运行时，启用对应插件并 **添加账号**。完成授权后，在账号管理中启用需要的模型；重复添加可组成账号池。
 3. 保持 Cursor BYOK 运行，**完全退出并重新启动 Cursor，新开一个对话**。
 4. 在 Cursor 中手动选择配置的模型。**Auto 使用 Cursor 官方模型**，不会自动使用自定义通道。
 
@@ -68,7 +59,7 @@ API Key 和账号凭据保存在本机；模型请求仍发送到对应服务商
 
 ### 在 Cursor 中调用生图模型
 
-生图支持随当前源码提供，使用 BYOK 管理的 Cursor Agent 对话。仅转发模型推理的 `RunInference` 模式由 Cursor 客户端提供工具列表。此功能晚于上方链接中的 1.0.4 安装包。
+从 1.0.5 起，可以在 BYOK 管理的 Cursor Agent 对话中使用生图模型。仅转发模型推理的 `RunInference` 模式由 Cursor 客户端提供工具列表。
 
 在 **Cursor 配置 → 添加模型 → 模型类别** 选择 **图片生成**，填写显示名称、上游模型 ID、API Key 和兼容 OpenAI Images API 的服务地址。基础地址会自动拼接 `/v1/images/generations`，完整请求 URL 会按原样使用。支持返回 `b64_json` 或与生成接口同源的图片 URL。
 
@@ -78,7 +69,7 @@ API Key 和账号凭据保存在本机；模型请求仍发送到对应服务商
 
 ## 账号插件
 
-以下新增插件包含在 **1.0.4 构建**中，点击名称查看详细登录和导入说明：
+1.0.5 包含下列账号插件。点击插件名称可查看登录与导入说明。
 
 | 插件 | 登录 / 导入方式 | 积分与条件 |
 | --- | --- | --- |
@@ -99,7 +90,7 @@ Cursor BYOK 是运行在本机的桌面网关。它将 Cursor 请求转换为所
 
 ### Cursor BYOK 支持哪些模型接口？
 
-支持 OpenAI Responses API、OpenAI Chat Completions API 和 Anthropic Messages API 兼容服务。请按服务商实际开放的接口填写地址、API Key、模型 ID 与协议；“兼容 OpenAI”不代表服务商同时实现这两种 OpenAI 协议。字段说明见[模型配置](#模型配置)。
+聊天模型支持 OpenAI Responses、OpenAI Chat Completions 和 Anthropic Messages 兼容服务。生图模型支持 OpenAI Images API 的 `/v1/images/generations`。请按服务商实际开放的接口配置并测试。[模型配置](#模型配置) · [生图设置](#在-cursor-中调用生图模型)
 
 ### 配置完成后，为什么 Cursor 仍使用官方模型？
 

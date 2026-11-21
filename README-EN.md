@@ -17,7 +17,7 @@ An open-source local model gateway for Cursor, with configurable model APIs, acc
 
 Connect OpenAI- and Anthropic-compatible APIs to Cursor, or use account plugins to discover models from services you already use. Manage the connections locally, keep multiple accounts, and inspect model calls and usage in one desktop app.
 
-**New in the 1.0.4 build:** WorkBuddy, Qoder China/Global, TeleAgent and Kiro plugins, with account pooling and credit queries. The shared account store also fixes concurrent login/refresh overwriting other accounts. See [requirements and validation scope](support/releases/v1.0.4.md).
+**New in 1.0.5.** Configure and test an Images API, then ask Cursor Agent to list your image models, generate an image by model name, and save it in your workspace. This release also includes the WorkBuddy, Qoder, TeleAgent and Kiro account plugins. [Release notes](support/releases/v1.0.5.md)
 
 ## Features
 
@@ -33,25 +33,16 @@ Connect OpenAI- and Anthropic-compatible APIs to Cursor, or use account plugins 
 
 ## Download
 
-Choose the version for your use case:
+[Download v1.0.5](https://github.com/bargino/cursor-byok/releases/tag/v1.0.5) for image generation and the account plugins. The release assets are public downloads.
 
-| Your use case | Version and download |
-| --- | --- |
-| Connect your own model API using a published installer without signing in to GitHub | [v1.0.3 Release](https://github.com/bargino/cursor-byok/releases/tag/v1.0.3) |
-| Use the new WorkBuddy, Qoder, TeleAgent or Kiro plugins and account storage fixes | **1.0.4 Actions build** from the platform table below; GitHub sign-in required |
-
-The latest published GitHub Release is currently **v1.0.3**, which does not include those four new plugins. See the [1.0.4 notes](support/releases/v1.0.4.md) for changes and validation scope.
-
-| Platform | 1.0.4 account-plugin build | Included packages |
+| Platform | Installer | Portable version or app archive |
 | --- | --- | --- |
-| Windows x64 | [Download artifact ZIP](https://github.com/bargino/cursor-byok/actions/runs/43882978067/artifacts/14234715652) | Setup EXE, MSI, portable ZIP |
-| macOS Apple Silicon | [Download artifact ZIP](https://github.com/bargino/cursor-byok/actions/runs/43887113282/artifacts/14237991128) | ARM64 DMG, application archive |
-| macOS Intel | [Download artifact ZIP](https://github.com/bargino/cursor-byok/actions/runs/43882978067/artifacts/14234398951) | x64 DMG, application archive |
-| Linux x64 | [Download artifact ZIP](https://github.com/bargino/cursor-byok/actions/runs/43882978067/artifacts/14233629111) | AppImage, DEB, RPM, binary archive |
+| Windows x64 | [EXE](https://github.com/bargino/cursor-byok/releases/download/v1.0.5/Cursor.BYOK_1.0.5_x64-setup.exe) · [MSI](https://github.com/bargino/cursor-byok/releases/download/v1.0.5/Cursor.BYOK_1.0.5_x64_en-US.msi) | [ZIP](https://github.com/bargino/cursor-byok/releases/download/v1.0.5/cursor-byok-1.0.5-windows-amd64.zip) |
+| macOS Apple Silicon | [ARM64 DMG](https://github.com/bargino/cursor-byok/releases/download/v1.0.5/Cursor.BYOK_1.0.5_aarch64.dmg) | [ARM64 .app.tar.gz](https://github.com/bargino/cursor-byok/releases/download/v1.0.5/Cursor.BYOK_1.0.5_aarch64.app.tar.gz) |
+| macOS Intel | [x64 DMG](https://github.com/bargino/cursor-byok/releases/download/v1.0.5/Cursor.BYOK_1.0.5_x64.dmg) | [x64 .app.tar.gz](https://github.com/bargino/cursor-byok/releases/download/v1.0.5/Cursor.BYOK_1.0.5_x64.app.tar.gz) |
+| Linux x64 | [DEB](https://github.com/bargino/cursor-byok/releases/download/v1.0.5/Cursor.BYOK_1.0.5_amd64.deb) · [RPM](https://github.com/bargino/cursor-byok/releases/download/v1.0.5/Cursor.BYOK-1.0.5-1.x86_64.rpm) | [AppImage](https://github.com/bargino/cursor-byok/releases/download/v1.0.5/Cursor.BYOK_1.0.5_amd64.AppImage) |
 
-These are GitHub Actions artifacts: **sign in to GitHub**, download the outer ZIP and extract the installer for your system. These four artifacts are scheduled to expire on **December 16, 2026**. They include a version/commit manifest and SHA-256 checksums. They are installer builds, not a published 1.0.4 Release or updater release.
-
-Prefer a published release without a GitHub sign-in? [Download v1.0.3](https://github.com/bargino/cursor-byok/releases/tag/v1.0.3). To build the current source, follow the [build guide](support/fork-maintenance.md#build-from-source). macOS packages are not Apple-notarized.
+Use `SHA256SUMS.txt` from the release page to verify a download. The macOS packages use ad hoc signing and have no Apple notarization. To build locally, follow the [source build guide](support/fork-maintenance.md#build-from-source).
 
 ## Quick start
 
@@ -60,7 +51,7 @@ Before switching from upstream, quit Cursor and Cursor BYOK and back up `~/.curs
 1. Install the package for your system. Open **Cursor Configuration** and follow the local CA setup instructions.
 2. Add a model connection:
    - **API key:** open **Model Settings**, select the provider/protocol, enter endpoint, API key and model ID, then save and test.
-   - **Account plugin (1.0.4):** open **Plugins**, initialize the plugin runtime, enable the provider and choose **Add account**. After authorization, enable the desired models in account management. Repeat to add more accounts.
+   - **Account plugin:** open **Plugins**, initialize the plugin runtime, enable the provider and choose **Add account**. After authorization, enable the desired models in account management. Repeat to add more accounts.
 3. Keep Cursor BYOK running. Quit Cursor completely, reopen it and start a **new conversation**.
 4. Select your configured model in Cursor. **Auto uses Cursor's official models**, so select the custom model explicitly.
 
@@ -68,7 +59,7 @@ API keys and account credentials are stored locally. The connected provider dete
 
 ### Generate images in Cursor
 
-Image generation is available in builds of the current source and runs in BYOK-managed Agent conversations. In the inference-only `RunInference` mode, Cursor supplies the tools. This feature was added after the 1.0.4 installers linked above.
+Starting in 1.0.5, image generation is available in BYOK-managed Cursor Agent conversations. In the inference-only `RunInference` mode, Cursor supplies the tools.
 
 In **Cursor Configuration → Add model**, choose the **Image generation** category. Enter the display name, upstream model ID, API key, and service URL for an OpenAI-compatible Images API. BYOK appends `/v1/images/generations` to a base URL or uses a full request URL as entered. The endpoint can return `b64_json` or a same-origin image URL.
 
@@ -78,7 +69,7 @@ Open a workspace, select a BYOK chat model, and ask Agent “Which image models 
 
 ## Account plugins
 
-The following additions are in the **1.0.4 build**. Each plugin has its own setup and import instructions:
+Version 1.0.5 includes the following account plugins. Each plugin has its own setup and import instructions.
 
 | Plugin | Login / import | Balance and setup notes |
 | --- | --- | --- |
@@ -99,7 +90,7 @@ Cursor BYOK is a desktop gateway running on your machine. It translates Cursor r
 
 ### Which model APIs does Cursor BYOK support?
 
-It supports services compatible with OpenAI Responses, OpenAI Chat Completions and Anthropic Messages APIs. Set the endpoint, API key, model ID and protocol to match your provider. An OpenAI-compatible service may implement only one of the two OpenAI protocols. Save the configuration and run the connection test before using it in Cursor.
+Chat models support the OpenAI Responses, OpenAI Chat Completions and Anthropic Messages APIs. Image models use the OpenAI Images API at `/v1/images/generations`. Select the protocol your provider supports, save the configuration, and run a test. [Image generation setup](#generate-images-in-cursor)
 
 ### Why does Cursor still use an official model after setup?
 
