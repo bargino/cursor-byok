@@ -30,12 +30,12 @@ impl PromptCompiler {
         suppress_subagent_progress: bool,
     ) -> Result<PromptSpec> {
         let mut tools = self.tools(mode, suppress_subagent_progress);
-        let mut dynamic_tools = dynamic_tools.to_vec();
-        dynamic_tools.sort_by(|left, right| left.name.cmp(&right.name));
-        append_dynamic_tools(&mut tools, dynamic_tools)?;
         if !model.supports_image_generation {
             tools.retain(|tool| tool.name != "GenerateImage");
         }
+        let mut dynamic_tools = dynamic_tools.to_vec();
+        dynamic_tools.sort_by(|left, right| left.name.cmp(&right.name));
+        append_dynamic_tools(&mut tools, dynamic_tools)?;
         let fake_model_name = model
             .display_name
             .as_deref()

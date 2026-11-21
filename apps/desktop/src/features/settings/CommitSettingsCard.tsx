@@ -11,6 +11,7 @@ import { TitledCard } from "../../shared/ui/TitledCard";
 import { useMessage } from "../../shared/ui/message";
 import controls from "../../shared/ui/Controls.module.scss";
 import { modelProviderName } from "../../shared/utils/modelProvider";
+import { isImageGenerationModel } from "../../shared/utils/modelCategory";
 import styles from "./CommitSettingsCard.module.scss";
 
 function errorText(cause: unknown) {
@@ -60,6 +61,7 @@ export function CommitSettingsCard() {
     const seen = new Set<string>();
     for (const model of models) {
       seen.add(model.model_hash);
+      if (isImageGenerationModel(model)) continue;
       options.push({
         value: model.model_hash,
         label: model.display_name && model.display_name !== model.model_id

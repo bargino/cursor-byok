@@ -24,7 +24,7 @@ use crate::{
             codec, compat,
             runtime::CursorToolRuntime,
             stream::ToolCallStream,
-            tool_call_result::{ToolCompletion, ToolResultReceiver},
+            tool_call_result::{ToolCompletion, ToolResultReceiver, ToolWork},
             ToolBatchState, ToolDispatcher,
         },
     },
@@ -181,7 +181,7 @@ impl ConversationOutput {
             let input = if let Ok(action) = self.runtime_actions.try_recv() {
                 Input::RuntimeAction(Some(Box::new(action)))
             } else if let Some(completion) = ready.pop_front() {
-                Input::Completion(completion)
+                Input::CompletionResult(Some(Ok(ToolWork::Completed(Box::new(completion)))))
             } else {
                 tokio::select! {
                     biased;
@@ -201,17 +201,35 @@ impl ConversationOutput {
                 Input::CheckpointFailure(None) => {
                     checkpoint_worker_open = false;
                 }
-                Input::Completion(completion) => {
+                Input::CompletionResult(Some(result)) => {
+                    let completion = match result? {
+                        ToolWork::Completed(completion) => *completion,
+                        ToolWork::ImageWrite {
+                            call,
+                            started_at_ms,
+                            path,
+                            bytes,
+                        } => {
+                            if !interrupted_tool_calls.contains(&call.call_id) {
+                                let id = self
+                                    .tool_runtime
+                                    .reserve_image_write(&call, started_at_ms)
+                                    .await?;
+                                if self.superseded.is_cancelled()
+                                    || self.run.cancellation().is_cancelled()
+                                {
+                                    self.tool_runtime.discard_exec(id).await;
+                                } else {
+                                    self.handle.emit(&codec::image_write_request(
+                                        id, &call, path, bytes,
+                                    ))?;
+                                }
+                            }
+                            continue;
+                        }
+                    };
                     if let Some(completion) = self
                         .forward_completion(completion, &mut completions, &interrupted_tool_calls)
-                        .await?
-                    {
-                        ready.push_back(completion);
-                    }
-                }
-                Input::CompletionResult(Some(result)) => {
-                    if let Some(completion) = self
-                        .forward_completion(result?, &mut completions, &interrupted_tool_calls)
                         .await?
                     {
                         ready.push_back(completion);
@@ -990,8 +1008,7 @@ impl ConversationOutput {
 
 enum Input {
     Event(Option<RunEvent>),
-    Completion(ToolCompletion),
-    CompletionResult(Option<Result<ToolCompletion>>),
+    CompletionResult(Option<Result<ToolWork>>),
     RuntimeAction(Option<Box<RuntimeAction>>),
     CheckpointFailure(Option<Error>),
 }

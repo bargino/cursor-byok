@@ -10,6 +10,7 @@ use crate::{
 
 use super::{normalized, InteractionContinuation, ToolStart};
 use crate::cursor::tools::{
+    image,
     runtime::{CursorToolRuntime, PendingInteraction},
     tool_call_result::{self as result, ToolResultSender},
 };
@@ -26,9 +27,31 @@ pub(super) async fn resume(
     results: &ToolResultSender,
     search: &WebSearch,
     fetch: &WebFetch,
-    pending: PendingInteraction,
+    store: Option<&crate::store::Store>,
+    mut pending: PendingInteraction,
     response: &pb::InteractionResponse,
 ) -> Result<InteractionContinuation> {
+    if let Some(pb::interaction_response::Result::GenerateImageRequestResponse(value)) =
+        &response.result
+    {
+        if let Some(pb::generate_image_request_response::Result::Approved(approved)) = &value.result
+        {
+            let image = pending.image.take().ok_or_else(|| {
+                Error::Protocol("GenerateImage approval has no pending image request".into())
+            })?;
+            let store = store
+                .cloned()
+                .ok_or_else(|| Error::Protocol("GenerateImage has no model store".into()))?;
+            image::generate(
+                results.clone(),
+                store,
+                pending,
+                image,
+                approved.description.clone(),
+            );
+            return Ok(InteractionContinuation::Pending);
+        }
+    }
     if normalized(&pending.call.name) == "websearch"
         && matches!(
             response.result.as_ref(),

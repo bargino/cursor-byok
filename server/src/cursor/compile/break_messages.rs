@@ -228,6 +228,7 @@ async fn compile_with_timestamp(
 pub(super) fn compile_request_context(
     event_id: &str,
     request_context: &pb::RequestContext,
+    image_models: &[crate::cursor::tools::runtime::ImageModel],
     history: &[CanonicalMessage],
 ) -> Result<Option<CanonicalMessage>> {
     let time = Time::now(
@@ -236,7 +237,27 @@ pub(super) fn compile_request_context(
             .as_ref()
             .map(|env| env.time_zone.as_str()),
     )?;
-    let text = context::compile_context(request_context, &time.today);
+    let mut text = context::compile_context(request_context, &time.today);
+    const TAG: &str = "<image_generation_models>";
+    let previous = history
+        .iter()
+        .rev()
+        .find(|message| message.message_id.starts_with("request-context:"));
+    let previously_listed = previous.is_some_and(|message| match &message.content {
+        MessageContent::Parts { parts } => parts.iter().any(
+            |part| matches!(part, crate::model::ContentPart::Text { text } if text.contains(TAG)),
+        ),
+        _ => false,
+    });
+    if !image_models.is_empty() || previously_listed {
+        if !text.is_empty() {
+            text.push_str("\n\n");
+        }
+        let catalog = serde_json::to_string(image_models)?
+            .replace('<', "\\u003c")
+            .replace('>', "\\u003e");
+        text.push_str(&format!("{TAG}\nConfigured image generation models in default order. Use the first entry unless the user specifies a model. Pass its id to GenerateImage.\n{catalog}\n</image_generation_models>"));
+    }
     if text.is_empty() {
         return Ok(None);
     }
@@ -246,18 +267,9 @@ pub(super) fn compile_request_context(
         Origin::Prompt,
         text,
     );
-    Ok(should_project_request_context(history, &message).then_some(message))
-}
-
-fn should_project_request_context(
-    history: &[CanonicalMessage],
-    current: &CanonicalMessage,
-) -> bool {
-    history
-        .iter()
-        .rev()
-        .find(|message| message.message_id.starts_with("request-context:"))
-        .is_none_or(|previous| previous.content != current.content)
+    Ok(previous
+        .is_none_or(|previous| previous.content != message.content)
+        .then_some(message))
 }
 
 pub async fn compile_background(
@@ -388,5 +400,68 @@ impl Time {
             timestamp: format!("{} ({utc})", now.format("%A, %b %-d, %Y, %-I:%M %p")),
             today: now.format("%A %b %-d,\n%Y").to_string(),
         })
+    }
+}
+
+#[cfg(test)]
+mod image_catalog_tests {
+    use super::*;
+    use crate::cursor::tools::runtime::ImageModel;
+
+    #[test]
+    fn changing_or_removing_image_models_appends_exactly_one_catalog_update() {
+        let one = vec![ImageModel {
+            id: "route".into(),
+            model: "image-v1".into(),
+            name: "<Image>".into(),
+        }];
+        let context = pb::RequestContext::default();
+        let mut history = Vec::new();
+        let first = compile_request_context("1", &context, &one, &history)
+            .unwrap()
+            .unwrap();
+        let contents = serde_json::to_string(&first.content).unwrap();
+        assert!(contents.contains("image-v1"));
+        assert!(!contents.contains("<Image>"));
+        history.push(first.clone());
+        assert!(compile_request_context("2", &context, &one, &history)
+            .unwrap()
+            .is_none());
+        let mut two = one.clone();
+        two.push(ImageModel {
+            id: "another".into(),
+            model: "image-v2".into(),
+            name: "Image 2".into(),
+        });
+        let added = compile_request_context("added", &context, &two, &history)
+            .unwrap()
+            .unwrap();
+        let added_text = serde_json::to_string(&added.content).unwrap();
+        assert!(added_text.find("image-v1").unwrap() < added_text.find("image-v2").unwrap());
+        history.push(added);
+        two.reverse();
+        let reordered = compile_request_context("reordered", &context, &two, &history)
+            .unwrap()
+            .unwrap();
+        let reordered_text = serde_json::to_string(&reordered.content).unwrap();
+        assert!(
+            reordered_text.find("image-v2").unwrap() < reordered_text.find("image-v1").unwrap()
+        );
+        history.push(reordered);
+        let empty = compile_request_context("3", &context, &[], &history)
+            .unwrap()
+            .unwrap();
+        assert!(!serde_json::to_string(&empty.content)
+            .unwrap()
+            .contains("image-v1"));
+        history.push(empty);
+        assert!(compile_request_context("4", &context, &[], &history)
+            .unwrap()
+            .is_none());
+        let restored = compile_request_context("5", &context, &one, &history)
+            .unwrap()
+            .unwrap();
+        assert_eq!(restored.content, first.content);
+        assert_ne!(restored.message_id, first.message_id);
     }
 }

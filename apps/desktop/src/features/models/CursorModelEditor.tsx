@@ -1,6 +1,7 @@
 import { useRef } from "react";
 import type { ModelInput, ModelType } from "../../shared/api";
 import { defaultCustomHeadersText } from "../../shared/utils/modelDefaults";
+import { imageGenerationEndpoint, isImageGenerationModel, switchFullModelUrl } from "../../shared/utils/modelCategory";
 import { modelPresets, presetEndpoint, trimTrailingSlash, type ModelPreset } from "../../shared/utils/modelPresets";
 import { Button } from "../../shared/ui/Button";
 import { Checkbox } from "../../shared/ui/Checkbox";
@@ -13,15 +14,17 @@ import { CursorPresetChips } from "./CursorPresetChips";
 import styles from "./CursorSettings.module.scss";
 
 export type CursorModelDraft = {
-  providerId: string;
   model: ModelInput;
   openAIExtraParamsText: string;
   customHeadersText: string;
   anthropicExtraParamsText: string;
 };
 
+type CategoryDraft = Pick<ModelInput, "type" | "openai_endpoint" | "openai_extra_params_enabled"> & {
+  extraParamsText: string;
+};
+
 export const emptyCursorModelDraft = (): CursorModelDraft => ({
-  providerId: "builtin/openai",
   model: {
     sort_order: 0,
     display_name: "",
@@ -59,7 +62,31 @@ export function CursorModelEditor({ draft, modelOptions, discovering, onChange, 
   onDiscover: () => Promise<boolean>;
 }) {
   const modelCombobox = useRef<ComboboxHandle>(null);
+  const otherCategory = useRef<CategoryDraft | null>(null);
+  const imageGeneration = isImageGenerationModel(draft.model);
   const setModel = (patch: Partial<ModelInput>) => onChange({ ...draft, model: { ...draft.model, ...patch } });
+  const setCategory = (value: string) => {
+    if ((value === "image") === imageGeneration) return;
+    const next = otherCategory.current ?? {
+      type: "openai", openai_endpoint: value === "image" ? imageGenerationEndpoint : "/v1/responses",
+      openai_extra_params_enabled: false, extraParamsText: "{}",
+    };
+    const { type, openai_endpoint, openai_extra_params_enabled } = draft.model;
+    otherCategory.current = { type, openai_endpoint, openai_extra_params_enabled, extraParamsText: draft.openAIExtraParamsText };
+    onChange({
+      ...draft,
+      model: {
+        ...draft.model,
+        type: next.type,
+        openai_endpoint: next.openai_endpoint,
+        openai_extra_params_enabled: next.openai_extra_params_enabled,
+        base_url: draft.model.use_full_url
+          ? switchFullModelUrl(draft.model.base_url, next.type === "anthropic" ? "/v1/messages" : next.openai_endpoint)
+          : draft.model.base_url,
+      },
+      openAIExtraParamsText: next.extraParamsText,
+    });
+  };
   const setType = (type: ModelType) => {
     // 切换协议类型时，若当前地址命中某预设的另一协议端点，自动换到该预设对应协议的端点，
     // 避免出现「类型是 Anthropic、URL 却是 OpenAI chat/completions」的错配
@@ -68,7 +95,6 @@ export function CursorModelEditor({ draft, modelOptions, discovering, onChange, 
     const endpoint = preset ? presetEndpoint(preset, type) : null;
     onChange({
       ...draft,
-      providerId: `builtin/${type}`,
       model: {
         ...draft.model,
         type,
@@ -87,7 +113,7 @@ export function CursorModelEditor({ draft, modelOptions, discovering, onChange, 
   const numberValue = (value: string) => value === "" ? null : Math.trunc(Number(value));
   const canDiscover = Boolean(draft.model.base_url.trim() && draft.model.api_key.trim());
   // 选中预设后，把该服务商已知的模型 id 并入下拉，方便直接选（仍可用「获取模型」发现）
-  const presetModelOptions = modelPresets
+  const presetModelOptions = imageGeneration ? [] : modelPresets
     .filter((preset) => trimTrailingSlash(presetEndpoint(preset, draft.model.type).baseUrl) === trimTrailingSlash(draft.model.base_url.trim()))
     .flatMap((preset) => preset.models.map((item) => item.model_id));
   const combinedOptions = [...new Set([...modelOptions, ...presetModelOptions])];
@@ -125,27 +151,28 @@ export function CursorModelEditor({ draft, modelOptions, discovering, onChange, 
   const requestUrlPlaceholder = draft.model.use_full_url
     ? draft.model.type === "anthropic"
       ? "https://api.anthropic.com/v1/messages"
-      : draft.model.openai_endpoint === "/v1/chat/completions"
-        ? "https://api.openai.com/v1/chat/completions"
-        : "https://api.openai.com/v1/responses"
+      : `https://api.openai.com${draft.model.openai_endpoint}`
     : draft.model.type === "anthropic"
       ? "https://api.anthropic.com"
       : "https://api.openai.com";
 
   const providerOptions = [
-    { value: "builtin/openai", label: "OpenAI", icon: openAiIcon },
-    { value: "builtin/anthropic", label: "Anthropic", icon: claudeIcon },
+    { value: "openai", label: "OpenAI", icon: openAiIcon },
+    { value: "anthropic", label: "Anthropic", icon: claudeIcon },
   ];
-  const setProvider = (providerId: string) => {
-    if (providerId === "builtin/openai") setType("openai");
-    if (providerId === "builtin/anthropic") setType("anthropic");
-  };
 
   return <div className={styles.editor}>
-    <CursorPresetChips type={draft.model.type} baseUrl={draft.model.base_url} onPick={applyPreset} />
+    {!imageGeneration && <CursorPresetChips type={draft.model.type} baseUrl={draft.model.base_url} onPick={applyPreset} />}
     <div className={styles.grid}>
-      <FormField label={t("模型类型")}><Select ariaLabel={t("模型类型")} value={draft.providerId} options={providerOptions} onChange={setProvider} /></FormField>
-      {draft.model.type === "openai" && <FormField label={t("请求协议")} hint={t("只决定请求与响应的格式，不会改变请求地址。")}> <Select ariaLabel={t("请求协议")} value={draft.model.openai_endpoint} options={[
+      <FormField label={t("模型类别")} hint={t("图片生成模型可由 Cursor Agent 在对话中调用。")}>
+        <Select ariaLabel={t("模型类别")} value={imageGeneration ? "image" : "chat"} options={[
+          { value: "chat", label: t("聊天") }, { value: "image", label: t("图片生成") },
+        ]} onChange={setCategory} />
+      </FormField>
+      {imageGeneration
+        ? <FormField label={t("请求协议")}><TextInput readOnly value="OpenAI Images API" /></FormField>
+        : <FormField label={t("模型类型")}><Select ariaLabel={t("模型类型")} value={draft.model.type} options={providerOptions} onChange={(type) => setType(type === "anthropic" ? "anthropic" : "openai")} /></FormField>}
+      {!imageGeneration && draft.model.type === "openai" && <FormField label={t("请求协议")} hint={t("只决定请求与响应的格式，不会改变请求地址。")}> <Select ariaLabel={t("请求协议")} value={draft.model.openai_endpoint} options={[
         { value: "/v1/responses", label: "Responses API" },
         { value: "/v1/chat/completions", label: "Chat Completions API" },
       ]} onChange={(openai_endpoint) => setModel({ openai_endpoint })} /></FormField>}
@@ -156,19 +183,19 @@ export function CursorModelEditor({ draft, modelOptions, discovering, onChange, 
       </div>
       <FormField label="API Key" hint={t("访问模型服务所需的密钥。")}> <SecretTextInput placeholder="sk-xxxxxx" autoComplete="off" value={draft.model.api_key} onChange={(event) => setModel({ api_key: event.target.value })} /></FormField>
 
-      <FormField label={t("模型名称")} hint={t("可以直接输入模型标识，也可以读取接口返回的模型列表。")}><Combobox ref={modelCombobox} value={draft.model.model_id} options={combinedOptions} placeholder="gpt-5" append={<Button className={styles.discoverButton} disabled={discovering || !canDiscover} onClick={() => void discoverModels()}>{discovering ? t("获取中…") : t("获取模型")}</Button>} onChange={(model_id) => setModel({ model_id, display_name: draft.model.display_name || model_id })} /></FormField>
+      <FormField label={t("模型名称")} hint={t("可以直接输入模型标识，也可以读取接口返回的模型列表。")}><Combobox ref={modelCombobox} value={draft.model.model_id} options={combinedOptions} placeholder={imageGeneration ? "gpt-image-1" : "gpt-5"} append={<Button className={styles.discoverButton} disabled={discovering || !canDiscover} onClick={() => void discoverModels()}>{discovering ? t("获取中…") : t("获取模型")}</Button>} onChange={(model_id) => setModel({ model_id, display_name: !draft.model.display_name || draft.model.display_name === draft.model.model_id ? model_id : draft.model.display_name })} /></FormField>
       <FormField label={t("显示名称")} hint={t("仅用于界面展示，不会改变发送给模型服务的模型名称。")}> <TextInput placeholder={t("例如：主力模型")} value={draft.model.display_name} onChange={(event) => setModel({ display_name: event.target.value })} /></FormField>
-      <FormField className={styles.fullWidth} label={t("备注")} hint={t("显示在 Cursor 模型说明中。")}> <TextInput placeholder={t("请输入模型备注")} value={draft.model.tooltip_data} onChange={(event) => setModel({ tooltip_data: event.target.value })} /></FormField>
+      <FormField className={styles.fullWidth} label={t("备注")} hint={imageGeneration ? undefined : t("显示在 Cursor 模型说明中。")}> <TextInput placeholder={t("请输入模型备注")} value={draft.model.tooltip_data} onChange={(event) => setModel({ tooltip_data: event.target.value })} /></FormField>
 
-      <FormField label={t("上下文窗口 Token")} hint={t("留空时使用默认值。")}> <TextInput type="number" min={1} step={1} placeholder={t("留空使用默认值")} value={draft.model.context_window_tokens ?? ""} onChange={(event) => setModel({ context_window_tokens: numberValue(event.target.value) })} /></FormField>
-      {draft.model.type === "openai" ? <>
+      {!imageGeneration && <FormField label={t("上下文窗口 Token")} hint={t("留空时使用默认值。")}> <TextInput type="number" min={1} step={1} placeholder={t("留空使用默认值")} value={draft.model.context_window_tokens ?? ""} onChange={(event) => setModel({ context_window_tokens: numberValue(event.target.value) })} /></FormField>}
+      {!imageGeneration && (draft.model.type === "openai" ? <>
         <FormField label={t("最大输出 Token")} hint={t("留空时使用默认值。")}> <TextInput type="number" min={1} step={1} placeholder={t("留空使用默认值")} value={draft.model.max_completion_tokens ?? ""} onChange={(event) => setModel({ max_completion_tokens: numberValue(event.target.value) })} /></FormField>
         <FormField label={t("推理强度")}> <Select ariaLabel={t("推理强度")} value={draft.model.reasoning_effort ?? ""} options={effortOptions(true)} onChange={(value) => setModel({ reasoning_effort: value || null })} /></FormField>
       </> : <>
         <FormField label={t("最大输出 Token")} hint={t("留空时使用默认值。")}> <TextInput type="number" min={1} step={1} placeholder={t("留空使用默认值")} value={draft.model.anthropic_max_tokens ?? ""} onChange={(event) => setModel({ anthropic_max_tokens: numberValue(event.target.value) })} /></FormField>
         <FormField label={t("思考强度")}> <Select ariaLabel={t("思考强度")} value={draft.model.anthropic_thinking_effort ?? "xhigh"} options={effortOptions(false)} onChange={(anthropic_thinking_effort) => setModel({ anthropic_thinking_effort })} /></FormField>
         <FormField label={t("思考预算 Token")} hint={t("留空时使用 adaptive thinking。")}> <TextInput type="number" min={1} step={1} placeholder={t("留空使用 adaptive thinking")} value={draft.model.thinking_budget_tokens ?? ""} onChange={(event) => setModel({ thinking_budget_tokens: numberValue(event.target.value) })} /></FormField>
-      </>}
+      </>)}
 
       <ToggleJsonField
         label={t("自定义 Headers")}

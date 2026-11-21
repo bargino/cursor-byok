@@ -78,7 +78,7 @@ impl InferenceRegistry {
         Ok(self
             .inner
             .store
-            .model(model_id)
+            .chat_model(model_id)
             .await?
             .map(|model| ByokModel::Configured(Box::new(model))))
     }

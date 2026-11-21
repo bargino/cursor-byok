@@ -194,6 +194,11 @@ async fn disabled_and_unauthorized_requests_cannot_list_models() {
 async fn duplicate_public_model_ids_use_the_first_configured_model() {
     let (router, provider, store, _directory) = setup().await;
     let first = store.models().await.unwrap().remove(0);
+    // A generation endpoint may share the same public ID and sort ahead of the chat backend.
+    let mut image = model_input();
+    image.display_name = "A generation endpoint".into();
+    image.openai_endpoint = cursor_server::model::OPENAI_IMAGE_GENERATION_ENDPOINT.into();
+    store.create_model(&image).await.unwrap();
     let mut duplicate = model_input();
     duplicate.sort_order = 1;
     duplicate.display_name = "Backup".into();

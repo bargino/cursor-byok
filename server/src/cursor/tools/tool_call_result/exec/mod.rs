@@ -34,6 +34,20 @@ pub(crate) fn from_exec(
     let call = &pending.call;
     let read_image = read_image(wire_result);
     let (mut content, is_error) = output::output(wire_result, call)?;
+    if matches!(pending.stage, ExecStage::ImageWrite) {
+        let outcome = match wire_result {
+            Message::WriteResult(write) => match &write.result {
+                Some(pb::write_result::Result::Success(success)) if !success.path.is_empty() => {
+                    Ok(success.path.clone())
+                }
+                _ => Err(format!(
+                    "Cursor could not save the generated image: {content}"
+                )),
+            },
+            _ => Err("Cursor returned an unexpected response to the image write".into()),
+        };
+        return super::complete_image(call, pending.started_at_ms, outcome);
+    }
     if let Some(image) = &read_image {
         content = format!("Read image file: {}", image.path);
     }

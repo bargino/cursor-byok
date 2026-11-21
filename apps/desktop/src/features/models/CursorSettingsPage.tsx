@@ -19,6 +19,7 @@ import { addIcon } from "../../shared/ui/icons";
 import { useMessage } from "../../shared/ui/message";
 import { PageActions } from "../../shell/PageActions";
 import { appStore, useAppStore } from "../../shared/store/appStore";
+import { isImageGenerationModel } from "../../shared/utils/modelCategory";
 
 export function CursorSettingsPage() {
   const { models, cursorHarness, cursorBusy, plugins } = useAppStore();
@@ -48,7 +49,7 @@ export function CursorSettingsPage() {
   const takeoverLabel = cursorTakenOver ? t("关闭接管Cursor") : t("开启接管Cursor");
   const pluginModels = configuredPluginModels(plugins);
   const testTargets = [
-    ...models.map((model) => ({ model_hash: model.model_hash, display_name: model.display_name })),
+    ...models.filter((model) => !isImageGenerationModel(model)),
     ...pluginModels.map((model) => ({ model_hash: model.id, display_name: model.displayName })),
   ];
   const providerGroups = cursorModelGroups(models, "provider");
@@ -81,7 +82,6 @@ export function CursorSettingsPage() {
     setEditing(model);
     setModelOptions([model.model_id]);
     setDraft({
-      providerId: `builtin/${model.type}`,
       model: modelInput(model),
       openAIExtraParamsText: JSON.stringify(model.openai_extra_params, null, 2),
       customHeadersText: JSON.stringify(model.custom_headers, null, 2),
@@ -292,6 +292,7 @@ export function CursorSettingsPage() {
     </div>
   </CursorCaGate></CursorCaProvider>;
 
+  const editorSupportsTest = draft && !isImageGenerationModel(draft.model);
   const editorTestState = editing ? modelTestResults.get(editing.model_hash) : undefined;
   const editorTesting = Boolean(editing && testingModelHashes.has(editing.model_hash));
   const activeGroups = grouping === "provider" ? providerGroups : typeGroups;
@@ -315,11 +316,11 @@ export function CursorSettingsPage() {
             }}
           />
         </TooltipTrigger>
-        {testTargets.length > 0 && <div className={styles.groupActions} role="group" aria-label={t("操作")}>
+        {(models.length > 0 || pluginModels.length > 0) && <div className={styles.groupActions} role="group" aria-label={t("操作")}>
           <button type="button" aria-pressed={grouping === "flat"} onClick={() => setGrouping("flat")}>{t("默认平铺")}</button>
           {canGroupByProvider && <button type="button" aria-pressed={grouping === "provider"} onClick={() => setGrouping("provider")}>{t("按供应商")}</button>}
           {canGroupByType && <button type="button" aria-pressed={grouping === "type"} onClick={() => setGrouping("type")}>{t("按类型")}</button>}
-          <button type="button" disabled={cursorBusy || (!batchTesting && testingModelHashes.size > 0)} onClick={() => void (batchTesting ? cancelAllModelTests() : testAllModels())}>{batchTesting ? t("取消全部测试") : t("一键测试")}</button>
+          {testTargets.length > 0 && <button type="button" disabled={cursorBusy || (!batchTesting && testingModelHashes.size > 0)} onClick={() => void (batchTesting ? cancelAllModelTests() : testAllModels())}>{batchTesting ? t("取消全部测试") : t("一键测试")}</button>}
         </div>}
       </div>
     </PageActions>
@@ -338,7 +339,7 @@ export function CursorSettingsPage() {
     >
       <p>{t("关闭后将移除 Cursor 本地代理配置。如果你需要登陆官方账号，通常不需要关闭操作，推荐直接登陆你的账号即可(byok模型与官方账号的模型已支持无缝衔接)，是否继续关闭并清理代理？")}</p>
     </ConfirmDialog>
-    <Modal fullHeight open={draft !== null} title={editing ? t("编辑模型") : t("添加模型")} banner={draft && (editorTesting || editorTestState) ? <CursorModelTestResult state={editorTestState} testing={editorTesting} /> : undefined} busy={cursorBusy || savingAndTesting} onClose={() => { if (editing && editorTesting) void cancelModelTest(editing.model_hash); setDraft(null); setEditing(null); }} onSubmit={() => void save()} submitLabel={t("保存")} secondaryAction={<button type="button" className={controls.secondary} disabled={cursorBusy || savingAndTesting} onClick={() => void (editorTesting && editing ? cancelModelTest(editing.model_hash) : saveAndTest())}>{savingAndTesting ? t("处理中…") : editorTesting ? t("取消测试") : t("保存并测试")}</button>}>
+    <Modal fullHeight open={draft !== null} title={editing ? t("编辑模型") : t("添加模型")} banner={editorSupportsTest && (editorTesting || editorTestState) ? <CursorModelTestResult state={editorTestState} testing={editorTesting} /> : undefined} busy={cursorBusy || savingAndTesting} onClose={() => { if (editing && editorTesting) void cancelModelTest(editing.model_hash); setDraft(null); setEditing(null); }} onSubmit={() => void save()} submitLabel={t("保存")} secondaryAction={editorSupportsTest && <button type="button" className={controls.secondary} disabled={cursorBusy || savingAndTesting} onClick={() => void (editorTesting && editing ? cancelModelTest(editing.model_hash) : saveAndTest())}>{savingAndTesting ? t("处理中…") : editorTesting ? t("取消测试") : t("保存并测试")}</button>}>
       {draft && <>
         <CursorModelEditor draft={draft} modelOptions={modelOptions} discovering={discovering} onChange={setDraft} onDiscover={discover} />
       </>}
@@ -376,6 +377,7 @@ function sharedValue(values: string[]): string | null {
 }
 
 function draftInput(draft: CursorModelDraft): ModelInput {
+  const imageGeneration = isImageGenerationModel(draft.model);
   const model = {
     ...draft.model,
     display_name: draft.model.display_name.trim(),
@@ -385,9 +387,19 @@ function draftInput(draft: CursorModelDraft): ModelInput {
     model_id: draft.model.model_id.trim(),
     openai_extra_params: parseObject(draft.openAIExtraParamsText, t("OpenAI 额外参数")),
     custom_headers: parseHeaders(draft.customHeadersText),
-    anthropic_extra_params: parseObject(draft.anthropicExtraParamsText, t("Anthropic 额外参数")),
+    anthropic_extra_params: imageGeneration ? {} : parseObject(draft.anthropicExtraParamsText, t("Anthropic 额外参数")),
+    ...(imageGeneration && {
+      reasoning_effort: null,
+      context_window_tokens: null,
+      max_completion_tokens: null,
+      anthropic_max_tokens: null,
+      anthropic_thinking_effort: null,
+      thinking_budget_tokens: null,
+      anthropic_extra_params_enabled: false,
+    }),
   };
-  if (!model.display_name || !model.base_url || !model.api_key || !model.tooltip_data || !model.model_id) throw new Error(t("服务器地址或完整请求 URL、API Key、模型名称、显示名称和备注不能为空"));
+  if (!model.display_name || !model.base_url || !model.api_key || !model.model_id) throw new Error(t("服务器地址或完整请求 URL、API Key、模型名称和显示名称不能为空"));
+  if (!imageGeneration && !model.tooltip_data) throw new Error(t("请输入模型备注"));
   for (const [label, value] of [[t("上下文窗口 Token"), model.context_window_tokens], [t("最大输出 Token"), model.type === "openai" ? model.max_completion_tokens : model.anthropic_max_tokens], [t("思考预算 Token"), model.thinking_budget_tokens]] as const) {
     if (value !== null && (!Number.isSafeInteger(value) || value <= 0)) throw new Error(t("{label} 必须是大于 0 的整数", { label }));
   }

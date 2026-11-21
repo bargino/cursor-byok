@@ -52,9 +52,10 @@ pub async fn client_event(
         let entry = take(message.id, pending).await?;
         return match entry.stage {
             ExecStage::EditRead => advance_edit(entry, wire_result, pending).await,
-            ExecStage::Direct | ExecStage::DynamicMcp(_) | ExecStage::EditWrite(_) => {
-                completed(entry, wire_result.clone())
-            }
+            ExecStage::Direct
+            | ExecStage::DynamicMcp(_)
+            | ExecStage::EditWrite(_)
+            | ExecStage::ImageWrite => completed(entry, wire_result.clone()),
         };
     };
     use pb::shell_stream::Event;
@@ -143,6 +144,13 @@ pub async fn stream_closed(id: u32, pending: &CursorToolRuntime) -> Result<Optio
         return Ok(None);
     };
     let error = "Cursor Exec stream closed before returning a terminal result";
+    if matches!(entry.stage, ExecStage::ImageWrite) {
+        return Ok(Some(result::complete_image(
+            &entry.call,
+            entry.started_at_ms,
+            Err(error.into()),
+        )?));
+    }
     if entry.call.name.eq_ignore_ascii_case("Shell") || entry.call.name.eq_ignore_ascii_case("Bash")
     {
         let command = entry

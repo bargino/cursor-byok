@@ -224,6 +224,25 @@ pub(super) fn edit_write_request(
     ))
 }
 
+pub(crate) fn image_write_request(
+    id: u32,
+    call: &ToolCall,
+    path: String,
+    bytes: Vec<u8>,
+) -> pb::AgentServerMessage {
+    server_message(
+        id,
+        call,
+        pb::exec_server_message::Message::WriteArgs(pb::WriteArgs {
+            path,
+            file_bytes: bytes,
+            tool_call_id: call.call_id.clone(),
+            ..Default::default()
+        }),
+        Some(true),
+    )
+}
+
 fn server_message(
     id: u32,
     call: &ToolCall,

@@ -61,8 +61,17 @@ pub(super) async fn start(
             exec::start(runtime, call, context).await
         }
         "write" | "strreplace" | "editnotebook" => edit::start(runtime, call, context).await,
-        "askquestion" | "websearch" | "webfetch" | "switchmode" | "createplan"
-        | "generateimage" => interaction::start(runtime, call).await,
+        "generateimage" => {
+            let image = super::image::ImageRequest::prepare(call, context)?;
+            let id = runtime.reserve_query(call, Some(image)).await?;
+            Ok(ToolStart {
+                messages: vec![super::codec::tool_query(id, call)?],
+                completion: None,
+            })
+        }
+        "askquestion" | "websearch" | "webfetch" | "switchmode" | "createplan" => {
+            interaction::start(runtime, call).await
+        }
         "todowrite" | "updatecurrentstep" => local::start(call, message_index),
         "semblesearch" | "semblefindrelated" => search::start(results, call, store.cloned()),
         _ => Ok(unavailable_tool(call)),
@@ -138,10 +147,11 @@ pub(super) async fn resume_interaction(
     results: &ToolResultSender,
     search: &WebSearch,
     fetch: &WebFetch,
+    store: Option<&Store>,
     pending: PendingInteraction,
     response: &pb::InteractionResponse,
 ) -> Result<InteractionContinuation> {
-    interaction::resume(results, search, fetch, pending, response).await
+    interaction::resume(results, search, fetch, store, pending, response).await
 }
 
 fn is_shell_tool(name: &str) -> bool {

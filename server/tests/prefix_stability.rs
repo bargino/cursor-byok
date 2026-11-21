@@ -266,7 +266,7 @@ fn every_prompt_mode_loads_the_captured_tool_set() {
             "SembleSearch",
             "SembleFindRelated",
         ],
-        "976b309dd91e314d4916439ebb9da8995751d011532e39934a1da7593dc78ccb",
+        "6cca818e99253bac9bc1d01a15dd75662c6a7ff89aeaae41df6cc88227559d46",
     );
     assert_mode(
         &assets,
@@ -293,7 +293,7 @@ fn every_prompt_mode_loads_the_captured_tool_set() {
             "SembleSearch",
             "SembleFindRelated",
         ],
-        "6de1ee86a131ca093c7143f54fffcba2fc14b32ff45fd6f5e0df1347058ad744",
+        "9cbb47a54974fb3b4c3989d9671b75a47619bcbc44a7b3b06538e48864b745f3",
     );
     assert_mode(
         &assets,
@@ -303,7 +303,7 @@ fn every_prompt_mode_loads_the_captured_tool_set() {
     );
     assert_eq!(
         schema_digest(&assets.mode(Mode::Agent).tools),
-        "282a1dff7957090d0a75eac4a46474ac7cffa1b0937bdf97354544e729bb15c2"
+        "c9fd90b3c9e8c083582a02bffeaa8942c7791fbff18da6ed67b96f9594b7eec4"
     );
     let task = assets
         .mode(Mode::Agent)
@@ -477,6 +477,32 @@ fn image_generation_capability_controls_only_the_generate_image_definition() {
         .iter()
         .any(|tool| tool.name == "GenerateImage"));
     assert!(with.tools.iter().any(|tool| tool.name == "GenerateImage"));
+    let generate = with
+        .tools
+        .iter()
+        .find(|tool| tool.name == "GenerateImage")
+        .unwrap();
+    assert!(generate.parameters["properties"].get("model").is_some());
+    assert!(generate.parameters["properties"]
+        .get("reference_image_paths")
+        .is_none());
+    let external = ToolDefinition {
+        name: "GenerateImage".into(),
+        description: "An explicitly configured MCP image service".into(),
+        parameters: serde_json::json!({"type":"object"}),
+    };
+    let mcp_only = compiler
+        .prompt_spec(
+            Mode::Agent,
+            &ModelSpec::new("chat"),
+            std::slice::from_ref(&external),
+            false,
+        )
+        .unwrap();
+    assert_eq!(mcp_only.tools.last(), Some(&external));
+    assert!(compiler
+        .prompt_spec(Mode::Agent, &model, &[external], false)
+        .is_err());
     assert_eq!(with.tools.len(), without.tools.len() + 1);
 }
 

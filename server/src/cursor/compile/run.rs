@@ -141,9 +141,11 @@ pub(crate) async fn prepare(
         mode_from_proto(mode_number)?
     };
     let mut model = model::requested_model(request)?;
-    if let Some(configured_model) = store.model(&model.model_id).await? {
+    if let Some(configured_model) = store.chat_model(&model.model_id).await? {
         configured_model.configure(&mut model);
     }
+    let image_models = crate::cursor::tools::image::catalog(store.models().await?);
+    model.supports_image_generation = !image_models.is_empty();
     let dynamic = context::dynamic_mcp(request, &request_context)?;
     let subagent_model_overrides = model::overrides(request)?;
     let subagents_disabled = subagent_model_overrides
@@ -186,11 +188,22 @@ pub(crate) async fn prepare(
         }
         None => proposed_base_checkpoint_id,
     };
+    // Cursor can continue a chat without sending a wire checkpoint. Compare with the
+    // anchored local history so repeated catalogs deduplicate and removals clear old entries.
+    if !compacting
+        && !background_completion
+        && input_id.is_some()
+        && (base_messages.as_ref().is_none_or(Vec::is_empty)
+            || proposed_base_checkpoint_id != base_checkpoint_id)
+    {
+        base_messages = Some(store.load_checkpoint_messages(base_checkpoint_id).await?);
+    }
     let mut projected_user_context = if input_id.is_some() && !compacting && !background_completion
     {
         break_messages::compile_request_context(
             "identity",
             &request_context,
+            &image_models,
             base_messages.as_deref().unwrap_or_default(),
         )?
     } else {
@@ -235,6 +248,7 @@ pub(crate) async fn prepare(
                 None => break_messages::compile_request_context(
                     event_id,
                     &request_context,
+                    &image_models,
                     base_messages.as_deref().unwrap_or_default(),
                 )?,
             }
@@ -321,7 +335,7 @@ pub(crate) async fn prepare(
         };
         RunAction::Resume { pending_tool_round }
     };
-    let exec = exec_context(
+    let mut exec = exec_context(
         request,
         &request_context,
         &conversation_id,
@@ -329,6 +343,14 @@ pub(crate) async fn prepare(
         subagents_disabled,
         &subagent_model_overrides,
     );
+    if !dynamic.contains_key("GenerateImage")
+        && checkpoint_prompt
+            .tools
+            .iter()
+            .any(|tool| tool.name == "GenerateImage")
+    {
+        exec.image_models = image_models;
+    }
     Ok((
         PreparedRun {
             run_id,
@@ -624,6 +646,13 @@ fn exec_context(
             .unwrap_or_default(),
         admin_command_denylist: request_context.admin_command_denylist.clone(),
         mcp_routes: context::meta_mcp_routes(request_context),
+        image_models: Vec::new(),
+        workspace_path: request_context
+            .env
+            .as_ref()
+            .and_then(|env| env.workspace_paths.first())
+            .cloned()
+            .unwrap_or_default(),
     }
 }
 

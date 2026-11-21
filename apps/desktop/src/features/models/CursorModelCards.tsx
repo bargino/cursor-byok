@@ -2,6 +2,7 @@ import type { IconifyIcon } from "@iconify/react/offline";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import Sortable from "sortablejs";
 import type { Model, PluginModelDescriptor } from "../../shared/api";
+import { isImageGenerationModel } from "../../shared/utils/modelCategory";
 import { Card } from "../../shared/ui/Card";
 import { Icon } from "../../shared/ui/Icon";
 import { chevronDownIcon, chevronRightIcon, claudeIcon, dragIcon, editIcon, flatColorOrganizationIcon, openAiIcon } from "../../shared/ui/icons";
@@ -160,14 +161,15 @@ function ModelListRow({ model, disabled, testing, result, onTest, onEdit, onDupl
   onDuplicate: () => void;
   onDelete: () => void;
 }) {
+  const imageGeneration = isImageGenerationModel(model);
   return <div className={styles.modelRow}>
     <div className={styles.modelRowName}>
       <span className={styles.modelRowNameText}>{model.display_name}</span>
-      <span className={styles.modelRowModelId}>{model.model_id}</span>
+      <span className={styles.modelRowModelId}>{model.model_id}{imageGeneration && <> · {t("图片生成")}</>}</span>
     </div>
-    <CursorModelTestResult compact state={result} testing={testing} />
+    {!imageGeneration && <CursorModelTestResult compact state={result} testing={testing} />}
     <div className={styles.modelCardActions}>
-      <TruncatedButton size="small" disabled={disabled && !testing} label={testing ? t("取消测试") : t("测试")} onClick={onTest} />
+      {!imageGeneration && <TruncatedButton size="small" disabled={disabled && !testing} label={testing ? t("取消测试") : t("测试")} onClick={onTest} />}
       <TruncatedButton size="small" disabled={disabled} label={t("编辑")} onClick={onEdit} />
       <TruncatedButton size="small" disabled={disabled} label={t("复制")} onClick={onDuplicate} />
       <TruncatedButton size="small" className={styles.deleteButton} disabled={disabled} label={t("删除")} onClick={onDelete} />
@@ -260,6 +262,7 @@ function ModelGrid({
 
   return <div ref={grid} className={styles.modelGrid}>
     {models.map((model) => {
+      const imageGeneration = isImageGenerationModel(model);
       const result = testResults.get(model.model_hash);
       const testing = testingModelHashes.has(model.model_hash);
       return <Card className={styles.modelCard} data-model-hash={model.model_hash} key={model.model_hash}>
@@ -274,14 +277,14 @@ function ModelGrid({
             </div>
             <span className={styles.modelTypeBadge}>
               <Icon icon={model.type === "anthropic" ? claudeIcon : openAiIcon} />
-              {model.type === "anthropic" ? "Anthropic" : "OpenAI"}
+              {imageGeneration ? t("图片生成") : model.type === "anthropic" ? "Anthropic" : "OpenAI"}
             </span>
           </div>
           <div className={styles.modelCardTest}>
-            <CursorModelTestResult state={result} testing={testing} />
+            {!imageGeneration && <CursorModelTestResult state={result} testing={testing} />}
           </div>
           <div className={styles.modelCardActions}>
-            <TruncatedButton size="small" disabled={disabled && !testing} label={testing ? t("取消测试") : t("测试")} onClick={() => onTest(model)} />
+            {!imageGeneration && <TruncatedButton size="small" disabled={disabled && !testing} label={testing ? t("取消测试") : t("测试")} onClick={() => onTest(model)} />}
             <TruncatedButton size="small" disabled={disabled} label={t("编辑")} onClick={() => onEdit(model)} />
             <TruncatedButton size="small" disabled={disabled} label={t("复制")} onClick={() => onDuplicate(model)} />
             <TruncatedButton size="small" className={styles.deleteButton} disabled={disabled} label={t("删除")} onClick={() => onDelete(model)} />
@@ -312,6 +315,7 @@ function providerDomain(baseUrl: string) {
 }
 
 function typeGroup(model: Model) {
+  if (isImageGenerationModel(model)) return { key: "openai-images", label: t("图片生成"), icon: openAiIcon };
   if (model.type === "anthropic") return { key: "anthropic", label: "Anthropic", icon: claudeIcon };
   if (model.openai_endpoint === "/v1/chat/completions") return { key: "openai-chat", label: "OpenAI Chat", icon: openAiIcon };
   return { key: "openai-responses", label: "OpenAI Responses", icon: openAiIcon };

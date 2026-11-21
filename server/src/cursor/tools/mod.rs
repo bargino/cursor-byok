@@ -9,6 +9,7 @@ use tokio::sync::Mutex;
 pub mod codec;
 pub(crate) mod compat;
 pub(crate) mod edit;
+pub(crate) mod image;
 pub(crate) mod registry;
 pub mod runtime;
 mod schedule;
@@ -242,6 +243,7 @@ impl ToolDispatcher {
             &self.results,
             &self.search,
             &self.fetch,
+            self.store.as_ref(),
             pending,
             response,
         )

@@ -19,7 +19,9 @@ use crate::{
 use super::runtime::now_ms;
 
 pub(crate) use exec::{edit_failure, from_exec};
-pub(crate) use interaction::{complete_web_fetch, complete_web_search, from_interaction};
+pub(crate) use interaction::{
+    complete_image, complete_web_fetch, complete_web_search, from_interaction,
+};
 pub(crate) use local::{local, subagents_disabled, todo_items};
 pub(crate) use mcp::failure as mcp_failure;
 pub(crate) use search::complete as semble;
@@ -130,9 +132,19 @@ impl ToolCompletion {
     }
 }
 
+pub enum ToolWork {
+    Completed(Box<ToolCompletion>),
+    ImageWrite {
+        call: Box<ToolCall>,
+        started_at_ms: u64,
+        path: String,
+        bytes: Vec<u8>,
+    },
+}
+
 #[derive(Clone)]
-pub struct ToolResultSender(mpsc::UnboundedSender<Result<ToolCompletion>>);
-pub struct ToolResultReceiver(mpsc::UnboundedReceiver<Result<ToolCompletion>>);
+pub struct ToolResultSender(mpsc::UnboundedSender<Result<ToolWork>>);
+pub struct ToolResultReceiver(mpsc::UnboundedReceiver<Result<ToolWork>>);
 
 pub fn tool_result_channel() -> (ToolResultSender, ToolResultReceiver) {
     let (sender, receiver) = mpsc::unbounded_channel();
@@ -141,7 +153,26 @@ pub fn tool_result_channel() -> (ToolResultSender, ToolResultReceiver) {
 
 impl ToolResultSender {
     pub fn send(&self, result: ToolCompletion) {
-        let _ = self.0.send(Ok(result));
+        let _ = self.0.send(Ok(ToolWork::Completed(Box::new(result))));
+    }
+
+    pub(crate) fn image_write(
+        &self,
+        call: ToolCall,
+        started_at_ms: u64,
+        path: String,
+        bytes: Vec<u8>,
+    ) {
+        let _ = self.0.send(Ok(ToolWork::ImageWrite {
+            call: Box::new(call),
+            started_at_ms,
+            path,
+            bytes,
+        }));
+    }
+
+    pub(crate) async fn closed(&self) {
+        self.0.closed().await
     }
 
     pub fn send_error(&self, error: Error) {
@@ -150,7 +181,7 @@ impl ToolResultSender {
 }
 
 impl ToolResultReceiver {
-    pub async fn recv(&mut self) -> Option<Result<ToolCompletion>> {
+    pub async fn recv(&mut self) -> Option<Result<ToolWork>> {
         self.0.recv().await
     }
 }

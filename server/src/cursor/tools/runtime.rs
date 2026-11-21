@@ -12,6 +12,8 @@ use tokio::sync::Mutex;
 use crate::{cursor::protocol::proto::agent::v1 as pb, model::ToolCall, Error, Result};
 
 use super::edit::EditWrite;
+pub use super::image::ImageModel;
+use super::image::ImageRequest;
 
 #[derive(Clone, Default)]
 pub struct CursorToolRuntime {
@@ -36,6 +38,7 @@ pub(crate) enum ExecStage {
     DynamicMcp(pb::McpToolDefinition),
     EditRead,
     EditWrite(EditWrite),
+    ImageWrite,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -49,6 +52,8 @@ pub struct ExecContext {
     pub terminals_folder: String,
     pub admin_command_denylist: Vec<String>,
     pub mcp_routes: HashMap<(String, String), McpRoute>,
+    pub image_models: Vec<ImageModel>,
+    pub workspace_path: String,
 }
 
 #[derive(Clone, Debug)]
@@ -116,6 +121,7 @@ impl ExecContext {
 pub(crate) struct PendingInteraction {
     pub call: ToolCall,
     pub started_at_ms: u64,
+    pub image: Option<ImageRequest>,
 }
 
 impl CursorToolRuntime {
@@ -197,12 +203,35 @@ impl CursorToolRuntime {
     }
 
     pub async fn reserve_interaction(&self, call: &ToolCall) -> Result<u32> {
+        self.reserve_query(call, None).await
+    }
+
+    pub(crate) async fn reserve_image_write(
+        &self,
+        call: &ToolCall,
+        started_at_ms: u64,
+    ) -> Result<u32> {
+        self.reserve_exec_stage(
+            call,
+            &ExecContext::default(),
+            ExecStage::ImageWrite,
+            Some(started_at_ms),
+        )
+        .await
+    }
+
+    pub(crate) async fn reserve_query(
+        &self,
+        call: &ToolCall,
+        image: Option<ImageRequest>,
+    ) -> Result<u32> {
         let id = self.next_id()?;
         self.interactions.lock().await.insert(
             id,
             PendingInteraction {
                 call: call.clone(),
                 started_at_ms: now_ms(),
+                image,
             },
         );
         Ok(id)

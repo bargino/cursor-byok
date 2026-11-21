@@ -9,6 +9,7 @@ use crate::{Error, Result};
 
 pub const OPENAI_RESPONSES_ENDPOINT: &str = "/v1/responses";
 pub const OPENAI_CHAT_ENDPOINT: &str = "/v1/chat/completions";
+pub const OPENAI_IMAGE_GENERATION_ENDPOINT: &str = "/v1/images/generations";
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub enum ProviderType {
@@ -96,6 +97,7 @@ pub struct ModelConfigInput {
     #[serde(default)]
     pub use_full_url: bool,
     pub api_key: String,
+    #[serde(default)]
     pub tooltip_data: String,
     pub model_id: String,
     #[serde(default)]
@@ -153,6 +155,11 @@ pub struct ModelConfig {
 }
 
 impl ModelConfig {
+    pub fn is_image_generation(&self) -> bool {
+        self.model_type == ModelType::OpenAi
+            && self.openai_endpoint == OPENAI_IMAGE_GENERATION_ENDPOINT
+    }
+
     pub fn provider_type(&self) -> ProviderType {
         match self.model_type {
             ModelType::Anthropic => ProviderType::Anthropic,
@@ -216,7 +223,6 @@ pub fn normalize_model_input(input: &ModelConfigInput) -> Result<ModelConfigInpu
         .map(String::from);
     let base_url = normalize_request_url(&input.base_url)?;
     let api_key = required(&input.api_key, "model API key")?;
-    let tooltip_data = required(&input.tooltip_data, "model tooltip")?;
     let model_id = required(&input.model_id, "model id")?;
     let reasoning_effort = normalize_effort(input.reasoning_effort.as_deref(), true)?;
     let anthropic_thinking_effort = match input.model_type {
@@ -232,6 +238,11 @@ pub fn normalize_model_input(input: &ModelConfigInput) -> Result<ModelConfigInpu
     let openai_endpoint = match input.model_type {
         ModelType::OpenAi => normalize_openai_endpoint(&input.openai_endpoint)?,
         ModelType::Anthropic => String::new(),
+    };
+    let tooltip_data = if openai_endpoint == OPENAI_IMAGE_GENERATION_ENDPOINT {
+        input.tooltip_data.trim().to_owned()
+    } else {
+        required(&input.tooltip_data, "model tooltip")?
     };
     validate_object(&input.openai_extra_params, "OpenAI extra params")?;
     validate_object(&input.anthropic_extra_params, "Anthropic extra params")?;
@@ -380,6 +391,7 @@ fn normalize_openai_endpoint(value: &str) -> Result<String> {
     match value.trim() {
         "" | OPENAI_RESPONSES_ENDPOINT => Ok(OPENAI_RESPONSES_ENDPOINT.into()),
         OPENAI_CHAT_ENDPOINT => Ok(OPENAI_CHAT_ENDPOINT.into()),
+        OPENAI_IMAGE_GENERATION_ENDPOINT => Ok(OPENAI_IMAGE_GENERATION_ENDPOINT.into()),
         value => Err(Error::Config(format!(
             "unsupported OpenAI endpoint: {value}"
         ))),

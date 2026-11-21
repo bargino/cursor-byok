@@ -491,6 +491,9 @@ impl Store {
         };
         let value_json = serde_json::to_string(&settings)?;
         let _write = self.writes.lock().await;
+        if !settings.model_id.is_empty() {
+            self.chat_model(&settings.model_id).await?;
+        }
         sqlx::query(
             "INSERT INTO service_settings(setting_key, value_json, updated_at_ms) VALUES (?, ?, ?) ON CONFLICT(setting_key) DO UPDATE SET value_json = excluded.value_json, updated_at_ms = excluded.updated_at_ms",
         )

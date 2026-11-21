@@ -41,6 +41,22 @@ impl Store {
             .transpose()
     }
 
+    pub async fn chat_models(&self) -> Result<Vec<ModelConfig>> {
+        let mut models = self.models().await?;
+        models.retain(|model| !model.is_image_generation());
+        Ok(models)
+    }
+
+    pub async fn chat_model(&self, hash: &str) -> Result<Option<ModelConfig>> {
+        let model = self.model(hash).await?;
+        if model.as_ref().is_some_and(ModelConfig::is_image_generation) {
+            return Err(Error::Config(format!(
+                "image generation model {hash} cannot be used for chat"
+            )));
+        }
+        Ok(model)
+    }
+
     pub async fn create_model(&self, input: &ModelConfigInput) -> Result<ModelConfig> {
         let mut models = self.create_models(std::slice::from_ref(input)).await?;
         Ok(models.remove(0))
@@ -397,5 +413,43 @@ mod tests {
             .unwrap();
         assert_eq!(cleared.model_hash, created.model_hash);
         assert_eq!(cleared.group_name, None);
+    }
+
+    #[tokio::test]
+    async fn image_endpoints_are_persisted_and_excluded_from_chat_selection() {
+        use crate::{model::OPENAI_IMAGE_GENERATION_ENDPOINT, store::CommitSettings};
+
+        let directory = tempfile::tempdir().unwrap();
+        let store = Store::connect(&format!(
+            "sqlite://{}",
+            directory.path().join("models.db").display()
+        ))
+        .await
+        .unwrap();
+        let chat = store.create_model(&model_input(None)).await.unwrap();
+        let mut input = model_input(None);
+        input.base_url = "https://example.com/gateway/v1".into();
+        input.use_full_url = false;
+        input.openai_endpoint = OPENAI_IMAGE_GENERATION_ENDPOINT.into();
+        let image = store.create_model(&input).await.unwrap();
+        let saved = store.model(&image.model_hash).await.unwrap().unwrap();
+        assert!(saved.is_image_generation());
+        assert_eq!(
+            saved.request_url().unwrap(),
+            "https://example.com/gateway/v1/images/generations"
+        );
+        assert_eq!(store.models().await.unwrap().len(), 2);
+        let chat_models = store.chat_models().await.unwrap();
+        assert_eq!(chat_models.len(), 1);
+        assert_eq!(chat_models[0].model_hash, chat.model_hash);
+        assert!(store.chat_model(&image.model_hash).await.is_err());
+        assert!(store
+            .set_commit_settings(CommitSettings {
+                model_id: image.model_hash,
+                ..Default::default()
+            })
+            .await
+            .is_err());
+        assert!(store.commit_settings().await.unwrap().is_direct());
     }
 }

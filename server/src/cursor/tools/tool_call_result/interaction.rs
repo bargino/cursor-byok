@@ -110,8 +110,8 @@ pub(crate) fn from_interaction(
                 (rejected.reason.clone(), true)
             }
             pb::generate_image_request_response::Result::Approved(_) => {
-                return Err(Error::Provider(
-                    "GenerateImage requires a configured server-side image executor".into(),
+                return Err(Error::Protocol(
+                    "GenerateImage approval is not a terminal tool result".into(),
                 ));
             }
         },
@@ -158,6 +158,38 @@ pub(crate) fn from_interaction(
         }
     };
     ToolCompletion::from_rendered(call, pending.started_at_ms, output, is_error, rendered)
+}
+
+pub(crate) fn complete_image(
+    call: &crate::model::ToolCall,
+    started_at_ms: u64,
+    outcome: std::result::Result<String, String>,
+) -> Result<ToolCompletion> {
+    let mut rendered = interaction::render_tool_call(call, false)?;
+    let Some(pb::tool_call::Tool::GenerateImageToolCall(tool)) = rendered.tool.as_mut() else {
+        return Err(Error::Protocol("expected a GenerateImage tool call".into()));
+    };
+    let (result, output, is_error) = match outcome {
+        Ok(path) => (
+            pb::generate_image_result::Result::Success(pb::GenerateImageSuccess {
+                file_path: path.clone(),
+                image_data: String::new(),
+            }),
+            format!("Generated image saved to {path}"),
+            false,
+        ),
+        Err(error) => (
+            pb::generate_image_result::Result::Error(pb::GenerateImageError {
+                error: error.clone(),
+            }),
+            error,
+            true,
+        ),
+    };
+    tool.result = Some(pb::GenerateImageResult {
+        result: Some(result),
+    });
+    ToolCompletion::from_rendered(call, started_at_ms, output, is_error, rendered)
 }
 
 pub(crate) fn complete_web_search(
@@ -409,6 +441,7 @@ mod tests {
                 argument_error: None,
             },
             started_at_ms: 1,
+            image: None,
         }
     }
 }

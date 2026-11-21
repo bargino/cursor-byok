@@ -436,7 +436,7 @@ impl ControlService {
         } else {
             let configured = self
                 .store
-                .model(model_hash)
+                .chat_model(model_hash)
                 .await?
                 .ok_or_else(|| Error::RunNotFound(format!("model {model_hash}")))?;
             configured.configure(&mut model);
@@ -918,11 +918,10 @@ fn model_discovery_url(base_url: &str) -> Result<Url> {
     let versioned = last.len() > 1
         && last.starts_with('v')
         && last[1..].bytes().all(|byte| byte.is_ascii_digit());
-    let new_path = if let Some(parent) = path.strip_suffix("/chat/completions") {
-        // 完整请求 URL：剥掉端点段（chat/completions 是两段），换成 models
-        format!("{parent}/models")
-    } else if let Some(parent) = path
-        .strip_suffix("/responses")
+    let new_path = if let Some(parent) = path
+        .strip_suffix("/chat/completions")
+        .or_else(|| path.strip_suffix("/images/generations"))
+        .or_else(|| path.strip_suffix("/responses"))
         .or_else(|| path.strip_suffix("/messages"))
         .or_else(|| path.strip_suffix("/completions"))
     {
@@ -958,6 +957,7 @@ fn model_discovery_urls(base_url: &str) -> Result<Vec<Url>> {
         && tail[1..].bytes().all(|byte| byte.is_ascii_digit());
     let complete_request_url = [
         "/chat/completions",
+        "/images/generations",
         "/responses",
         "/messages",
         "/completions",
